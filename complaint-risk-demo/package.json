@@ -1,0 +1,10 @@
+{
+  "name": "complaint-risk-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test risk-engine.test.mjs",
+    "serve": "python3 -m http.server 4173"
+  }
+}

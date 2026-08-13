@@ -1,0 +1,60 @@
+.DS_Store
+**/.DS_Store
+
+# Dependencies and package-manager caches
+**/node_modules/
+.pnpm-store/
+
+# Build and framework output
+**/dist/
+**/build/
+**/coverage/
+**/.turbopack/
+**/.umi/
+**/.umi-production/
+*.tsbuildinfo
+
+# Browser and test artifacts
+**/.playwright-cli/
+**/playwright-report/
+**/test-results/
+**/output/playwright/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated documents, previews, and temporary research files
+/outputs/
+/tmp/
+
+# Standalone prototype with its own Git history
+/ai-assistant-web/sites-demo/
+
+# Local business research and source spreadsheets (never publish)
+/AI学情*.md
+/ai学情*.md
+/*.xlsx
+/*.xls
+/*.xlsm
+/*.xlsb
+/*.ods

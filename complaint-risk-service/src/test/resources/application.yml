@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:complaint-risk;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  flyway:
+    enabled: true
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+complaint-risk:
+  scheduler-enabled: false
+  notification-enabled: true
+  overlap-hours: 2
+  safety-delay-minutes: 2
+  page-size: 500
+  yunk:
+    mode: mock
+    base-url: ""
+    token: ""
+    messages-path: /openapi/v1/chat/messages
+  model:
+    mode: mock
+    base-url: ""
+    api-key: ""
+    model: mock-semantic-v1
+    timeout-seconds: 30
