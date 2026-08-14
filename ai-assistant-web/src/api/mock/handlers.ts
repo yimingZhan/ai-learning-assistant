@@ -202,7 +202,10 @@ export const handlers = [
         .flatMap((event) => event.evidence)
         .find((item) => item.id === String(params.evidenceId));
       return HttpResponse.json(
-        evidence?.type === "wechat" ? structuredClone(evidence.fullChat) : [],
+        evidence?.sourceType === "wechat_direct" ||
+          evidence?.sourceType === "wechat_group"
+          ? structuredClone(evidence.fullChat)
+          : [],
       );
     },
   ),

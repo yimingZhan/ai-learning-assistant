@@ -49,34 +49,53 @@ export type FullChatMessage = {
   content: RiskTextSegment[];
 };
 
-export type WechatEvidence = {
+export type EvidenceSourceType =
+  | "wechat_direct"
+  | "wechat_group"
+  | "phone_outbound"
+  | "learning_info";
+
+export type EvidenceEmployee = {
+  name: string;
+  role: string;
+};
+
+export type EvidenceDetailItem = {
+  label: string;
+  value: string;
+};
+
+type BaseEvidence = {
   id: string;
-  type: "wechat";
-  communicationRole: string;
-  employee: string;
+  sourceType: EvidenceSourceType;
   occurredAt: string;
-  excerpt: RiskTextSegment[];
+  contentSummary: RiskTextSegment[];
+  employees: EvidenceEmployee[];
+};
+
+export type WechatEvidence = BaseEvidence & {
+  sourceType: "wechat_direct" | "wechat_group";
   fullChat: FullChatMessage[];
 };
 
-export type PhoneEvidence = {
-  id: string;
-  type: "phone";
-  outboundRole: string;
-  employee: string;
-  calledAt: string;
+export type PhoneEvidence = BaseEvidence & {
+  sourceType: "phone_outbound";
   duration: string;
-  transcriptExcerpt: RiskTextSegment[];
   fullTranscript: RiskTextSegment[];
 };
 
-export type RiskEvidence = WechatEvidence | PhoneEvidence;
+export type LearningEvidence = BaseEvidence & {
+  sourceType: "learning_info";
+  detailItems: EvidenceDetailItem[];
+};
+
+export type RiskEvidence = WechatEvidence | PhoneEvidence | LearningEvidence;
 
 export type RiskEvent = {
   id: string;
-  theme: string;
-  aiSummary: string;
-  aiSuggestion: string;
+  riskType: string;
+  riskSummary: string;
+  handlingSuggestion: string;
   riskSources: RiskSource[];
   evidence: RiskEvidence[];
 };
@@ -154,6 +173,40 @@ export const riskSourceMeta: Record<RiskSource, string> = {
   wechat: "微信（云客）",
   phone: "电话外呼",
 };
+
+export const evidenceSourceMeta: Record<
+  EvidenceSourceType,
+  { label: string; summaryLabel: string; actionLabel: string }
+> = {
+  wechat_direct: {
+    label: "企微单聊",
+    summaryLabel: "聊天内容总结",
+    actionLabel: "查看完整聊天",
+  },
+  wechat_group: {
+    label: "企微群聊",
+    summaryLabel: "聊天内容总结",
+    actionLabel: "查看完整聊天",
+  },
+  phone_outbound: {
+    label: "电话外呼",
+    summaryLabel: "通话内容总结",
+    actionLabel: "查看完整转写",
+  },
+  learning_info: {
+    label: "学情信息",
+    summaryLabel: "学情信息总结",
+    actionLabel: "查看学情详情",
+  },
+};
+
+export function toRiskSource(
+  sourceType: EvidenceSourceType,
+): RiskSource | null {
+  if (sourceType === "phone_outbound") return "phone";
+  if (sourceType === "learning_info") return null;
+  return "wechat";
+}
 
 export const employeeDepartmentTree: EmployeeDepartmentNode[] = [
   {
@@ -282,6 +335,9 @@ function createWechatEvidence({
   riskText,
   reply,
   communicationRole = "学管",
+  chatType = "direct",
+  additionalEmployees = [],
+  additionalMessages = [],
 }: {
   id: string;
   employee: string;
@@ -290,14 +346,20 @@ function createWechatEvidence({
   riskText: string;
   reply: string;
   communicationRole?: string;
+  chatType?: "direct" | "group";
+  additionalEmployees?: EvidenceEmployee[];
+  additionalMessages?: FullChatMessage[];
 }): WechatEvidence {
   return {
     id,
-    type: "wechat",
-    communicationRole,
-    employee,
+    sourceType:
+      chatType === "group" ? "wechat_group" : "wechat_direct",
     occurredAt,
-    excerpt: [normal(lead), highlighted(riskText)],
+    contentSummary: [normal(lead), highlighted(riskText)],
+    employees: [
+      { name: employee, role: communicationRole },
+      ...additionalEmployees,
+    ],
     fullChat: [
       {
         id: `${id}-message-1`,
@@ -316,6 +378,7 @@ function createWechatEvidence({
         }),
         content: [normal(reply)],
       },
+      ...additionalMessages,
     ],
   };
 }
@@ -341,17 +404,39 @@ function createPhoneEvidence({
 }): PhoneEvidence {
   return {
     id,
-    type: "phone",
-    outboundRole,
-    employee,
-    calledAt,
+    sourceType: "phone_outbound",
+    occurredAt: calledAt,
+    employees: [{ name: employee, role: outboundRole }],
     duration,
-    transcriptExcerpt: [normal(lead), highlighted(riskText)],
+    contentSummary: [normal(lead), highlighted(riskText)],
     fullTranscript: [
       normal(`家长：${lead}`),
       highlighted(riskText),
       normal(`\n${employee}：${response}`),
     ],
+  };
+}
+
+function createLearningEvidence({
+  id,
+  occurredAt,
+  lead,
+  riskText,
+  detailItems,
+}: {
+  id: string;
+  occurredAt: string;
+  lead: string;
+  riskText: string;
+  detailItems: EvidenceDetailItem[];
+}): LearningEvidence {
+  return {
+    id,
+    sourceType: "learning_info",
+    occurredAt,
+    contentSummary: [normal(lead), highlighted(riskText)],
+    employees: [],
+    detailItems,
   };
 }
 
@@ -374,6 +459,18 @@ const linPhoneEffect = createPhoneEvidence({
   response: "我会在今天协调授课老师复盘学习目标，并向您同步调整方案。",
 });
 
+const linLearningEffect = createLearningEvidence({
+  id: "lin-learning-effect",
+  occurredAt: "2026-08-09 08:30",
+  lead: "近两次阶段测评成绩连续下降，作业中同类错题重复出现，",
+  riskText: "核心薄弱项尚未看到明显改善。",
+  detailItems: [
+    { label: "最近两次测评", value: "72 分 → 68 分" },
+    { label: "作业完成率", value: "86% → 78%" },
+    { label: "主要薄弱项", value: "函数综合应用、错题订正反复性" },
+  ],
+});
+
 const linPhoneRefund = createPhoneEvidence({
   id: "lin-phone-refund",
   employee: "周欣",
@@ -391,6 +488,17 @@ const linWechatResponse = createWechatEvidence({
   lead: "前两天问的课程调整一直没有结论，",
   riskText: "每次都要我们催，服务响应太慢了。",
   reply: "抱歉让您久等了，我已经确认到处理节点，下午两点前给您完整回复。",
+  chatType: "group",
+  additionalEmployees: [{ name: "李辰", role: "课程顾问" }],
+  additionalMessages: [
+    {
+      id: "lin-wechat-response-message-3",
+      sender: "李辰",
+      role: "课程顾问",
+      occurredAt: "2026-08-09 11:12",
+      content: [normal("我会同步核对课程调整方案，和周欣一起在今天给您明确结论。")],
+    },
+  ],
 });
 
 type BaseRiskStudentDetail = Omit<
@@ -423,30 +531,30 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "lin-event-20260809-effect",
-            theme: "学习效果质疑",
-            aiSummary:
+            riskType: "学习效果质疑",
+            riskSummary:
               "家长在企微和电话中连续质疑近期课程效果，认为成绩与作业表现未体现出与投入相匹配的改善。",
-            aiSuggestion:
+            handlingSuggestion:
               "建议先完成一次学习效果复盘：汇总最近两次测评、作业错题和老师反馈，定位未改善的薄弱点；由当前负责人在本次沟通后向家长同步量化结论和调整后的学习计划。",
             riskSources: ["wechat", "phone"],
-            evidence: [linWechatEffect, linPhoneEffect],
+            evidence: [linWechatEffect, linPhoneEffect, linLearningEffect],
           },
           {
             id: "lin-event-20260809-refund",
-            theme: "退费倾向",
-            aiSummary:
+            riskType: "退费倾向",
+            riskSummary:
               "家长首次明确提出若后续仍无改善将考虑退费，表达已从效果质疑升级为终止服务倾向。",
-            aiSuggestion:
+            handlingSuggestion:
               "建议立即升级负责人介入，先确认家长的核心诉求和可接受的改进窗口；在本次沟通后给出明确的课程调整方案与回访时间，避免继续让家长等待。",
             riskSources: ["phone"],
             evidence: [linPhoneRefund],
           },
           {
             id: "lin-event-20260809-response",
-            theme: "服务响应不满",
-            aiSummary:
+            riskType: "服务响应不满",
+            riskSummary:
               "家长认为课程调整反馈多次延迟且需要反复催促，对当前服务响应效率表达明显不满。",
-            aiSuggestion:
+            handlingSuggestion:
               "建议一次性梳理尚未闭环的课程调整事项，明确每项的处理人、完成时间和主动同步节点，并在下一次承诺时间前向家长回传进度。",
             riskSources: ["wechat"],
             evidence: [linWechatResponse],
@@ -458,10 +566,10 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "lin-event-20260808-effect",
-            theme: "学习效果质疑",
-            aiSummary:
+            riskType: "学习效果质疑",
+            riskSummary:
               "家长将近期测评结果与课程投入进行对比，认为核心薄弱点仍未得到改善。",
-            aiSuggestion:
+            handlingSuggestion:
               "建议按本次测评的错题类型拆解薄弱点，和授课老师共同确认后续训练重点，并向家长说明每个重点的验证方式和复盘时间。",
             riskSources: ["wechat"],
             evidence: [
@@ -482,10 +590,10 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "lin-event-20260807-effect",
-            theme: "学习效果质疑",
-            aiSummary:
+            riskType: "学习效果质疑",
+            riskSummary:
               "家长在回访中质疑阶段性学习目标是否达成，并要求提供可以量化的改进依据。",
-            aiSuggestion:
+            handlingSuggestion:
               "建议对照阶段目标整理“目标—实际结果—差距原因”清单，补充下一阶段的量化目标和检查节点，再由负责人向家长完成一次正式回访。",
             riskSources: ["phone"],
             evidence: [
@@ -522,9 +630,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "chen-event-0808-effect",
-            theme: "学习效果质疑",
-            aiSummary: "家长认为课程进度与目标校要求存在差距，对继续当前课程方案持怀疑态度。",
-            aiSuggestion:
+            riskType: "学习效果质疑",
+            riskSummary: "家长认为课程进度与目标校要求存在差距，对继续当前课程方案持怀疑态度。",
+            handlingSuggestion:
               "建议先按目标校要求复核课程节奏与当前结果，邀请授课老师给出可执行的调整方案；由课程顾问向家长展示目标、差距和改进节点。",
             riskSources: ["wechat"],
             evidence: [
@@ -541,9 +649,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
           },
           {
             id: "chen-event-0808-refund",
-            theme: "退费倾向",
-            aiSummary: "家长提出若无法调整师资和方案，将在转班与退费之间做选择。",
-            aiSuggestion:
+            riskType: "退费倾向",
+            riskSummary: "家长提出若无法调整师资和方案，将在转班与退费之间做选择。",
+            handlingSuggestion:
               "建议立即确认师资和课程方案的可调整范围，同步可行的转班选项；安排负责人尽快完成一次方案沟通，再根据家长选择决定是否进入退费流程。",
             riskSources: ["wechat"],
             evidence: [
@@ -565,9 +673,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "chen-event-0806-effect",
-            theme: "学习效果质疑",
-            aiSummary: "家长认为近期作业表现没有改善，并要求重新说明课程目标。",
-            aiSuggestion:
+            riskType: "学习效果质疑",
+            riskSummary: "家长认为近期作业表现没有改善，并要求重新说明课程目标。",
+            handlingSuggestion:
               "建议拉取近期作业错题和老师批改反馈，重新明确课程目标与训练重点，并用下一次作业结果验证调整是否有效。",
             riskSources: ["wechat"],
             evidence: [
@@ -601,9 +709,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "zhou-event-0806-schedule",
-            theme: "排课服务不满",
-            aiSummary: "家长反馈调整后的时间仍与校内课程冲突，认为排课沟通没有形成有效结果。",
-            aiSuggestion:
+            riskType: "排课服务不满",
+            riskSummary: "家长反馈调整后的时间仍与校内课程冲突，认为排课沟通没有形成有效结果。",
+            handlingSuggestion:
               "建议先锁定教师可用时间和家长可接受时段，提供至少两个不冲突的排课选项；确认后建立固定课时，避免再次反复调整。",
             riskSources: ["phone"],
             evidence: [
@@ -626,9 +734,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "zhou-event-0805-schedule",
-            theme: "排课服务不满",
-            aiSummary: "家长首次反馈临时调课影响既定安排，希望尽快确认稳定时段。",
-            aiSuggestion:
+            riskType: "排课服务不满",
+            riskSummary: "家长首次反馈临时调课影响既定安排，希望尽快确认稳定时段。",
+            handlingSuggestion:
               "建议优先确认后续可持续的固定上课时段，核对老师资源后一次性同步给家长，并在排课完成后主动确认首节课安排。",
             riskSources: ["phone"],
             evidence: [
@@ -663,9 +771,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "shen-event-0804-response",
-            theme: "反馈时效不满",
-            aiSummary: "家长希望课后学习反馈更及时，目前不满集中在信息同步速度。",
-            aiSuggestion:
+            riskType: "反馈时效不满",
+            riskSummary: "家长希望课后学习反馈更及时，目前不满集中在信息同步速度。",
+            handlingSuggestion:
               "建议将课后反馈设置为固定发送节点，明确每次课程后的责任人和完成时间；连续跟踪两次，确认反馈时效是否恢复稳定。",
             riskSources: ["wechat"],
             evidence: [
@@ -702,9 +810,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "gao-event-0802-response",
-            theme: "服务响应不满",
-            aiSummary: "家长认为近期多个服务问题回复缓慢，诉求没有形成明确处理结论。",
-            aiSuggestion:
+            riskType: "服务响应不满",
+            riskSummary: "家长认为近期多个服务问题回复缓慢，诉求没有形成明确处理结论。",
+            handlingSuggestion:
               "建议将现有未结事项合并成一份清单，逐项标注负责人、截止时间和当前状态，由当前负责人主动同步处理进度，直到全部闭环。",
             riskSources: ["wechat"],
             evidence: [
@@ -720,9 +828,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
           },
           {
             id: "gao-event-0802-refund",
-            theme: "退费倾向",
-            aiSummary: "家长提出若本轮问题继续无法解决，将进一步咨询退费流程。",
-            aiSuggestion:
+            riskType: "退费倾向",
+            riskSummary: "家长提出若本轮问题继续无法解决，将进一步咨询退费流程。",
+            handlingSuggestion:
               "建议先由负责人集中回应未结诉求并明确一次改进期限；若仍无法解决，再向家长清晰说明退费规则与后续办理流程。",
             riskSources: ["phone"],
             evidence: [
@@ -745,9 +853,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "gao-event-0801-schedule",
-            theme: "排课服务不满",
-            aiSummary: "家长反馈周末课程时间多次变动，影响家庭安排。",
-            aiSuggestion:
+            riskType: "排课服务不满",
+            riskSummary: "家长反馈周末课程时间多次变动，影响家庭安排。",
+            handlingSuggestion:
               "建议先与家长确认可接受的固定周末时段，再锁定老师资源并在系统留痕；未经家长确认，不再调整已约定的上课时间。",
             riskSources: ["phone"],
             evidence: [
@@ -770,9 +878,9 @@ const riskStudentDetailList: BaseRiskStudentDetail[] = [
         events: [
           {
             id: "gao-event-0731-response",
-            theme: "服务响应不满",
-            aiSummary: "家长首次指出问题反馈后等待时间过长，希望明确处理节点。",
-            aiSuggestion:
+            riskType: "服务响应不满",
+            riskSummary: "家长首次指出问题反馈后等待时间过长，希望明确处理节点。",
+            handlingSuggestion:
               "建议立即回复当前处理进度和下一次更新时间，同时建立服务问题跟踪清单，确保后续每个节点都由负责人主动反馈。",
             riskSources: ["wechat"],
             evidence: [
@@ -975,19 +1083,17 @@ export function getRiskEventRelatedPeople(studentId: string): RelatedPerson[] {
   for (const group of detail.eventGroups) {
     for (const event of group.events) {
       for (const evidence of event.evidence) {
-        const role =
-          evidence.type === "wechat"
-            ? evidence.communicationRole
-            : evidence.outboundRole;
-        const person = people.get(evidence.employee);
+        for (const employee of evidence.employees) {
+          const person = people.get(employee.name);
 
-        if (!person) {
-          people.set(evidence.employee, {
-            name: evidence.employee,
-            roles: [role],
-          });
-        } else if (!person.roles.includes(role)) {
-          person.roles.push(role);
+          if (!person) {
+            people.set(employee.name, {
+              name: employee.name,
+              roles: [employee.role],
+            });
+          } else if (!person.roles.includes(employee.role)) {
+            person.roles.push(employee.role);
+          }
         }
       }
     }

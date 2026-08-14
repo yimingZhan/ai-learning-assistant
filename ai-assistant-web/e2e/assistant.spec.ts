@@ -218,31 +218,43 @@ test("员工客诉列表使用官方查询表格并下钻到风险学生", async
   await expect(studentSelector.getByRole("option", { name: /陈子轩/ })).toHaveCount(0);
 });
 
-test("风险学生详情直接展示业务分区和完整证据交互", async ({ page }) => {
+test("风险学生详情按日期和类型展示结论并渐进展开证据", async ({ page }) => {
   const detailPanel = page.getByRole("region", {
     name: "学生客诉风险详情",
   });
   await expect(page.getByRole("dialog", { name: "学生客诉风险详情" })).toHaveCount(0);
   await expect(detailPanel.getByText("学生与服务信息")).toBeVisible();
-  await expect(detailPanel.getByText("AI 风险分析")).toBeVisible();
+  await expect(detailPanel.getByText("风险详情", { exact: true })).toBeVisible();
+  await expect(detailPanel.getByText("AI 风险分析")).toHaveCount(0);
   await expect(detailPanel.getByText("客户编号", { exact: true })).toBeVisible();
   await expect(detailPanel.getByText("跟进顾问", { exact: true })).toBeVisible();
   await expect(detailPanel.getByText("周欣", { exact: true }).first()).toBeVisible();
   await expect(detailPanel.getByText("跟进学管", { exact: true })).toBeVisible();
 
-  for (const theme of ["学习效果质疑", "退费倾向", "服务响应不满"]) {
-    await expect(detailPanel.getByText(theme, { exact: true }).first()).toBeVisible();
+  for (const riskType of ["学习效果质疑", "退费倾向", "服务响应不满"]) {
+    await expect(detailPanel.getByText(riskType, { exact: true }).first()).toBeVisible();
   }
-  for (const field of ["风险主题", "沟通角色", "沟通时间", "聊天内容总结"]) {
+  for (const field of ["风险类型", "风险总结", "处理建议"]) {
     await expect(detailPanel.getByText(field, { exact: true }).first()).toBeVisible();
   }
+  const evidenceToggles = detailPanel.getByRole("button", { name: /来源证据/ });
+  await expect(evidenceToggles).toHaveCount(5);
+  await expect(evidenceToggles.first()).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    detailPanel.getByText("我们没有看到明显效果。", { exact: true }),
+  ).toHaveCount(0);
+
+  await evidenceToggles.first().click();
+  await expect(detailPanel.getByText("聊天内容总结", { exact: true })).toBeVisible();
+  await expect(detailPanel.getByText("通话内容总结", { exact: true })).toBeVisible();
+  await expect(detailPanel.getByText("学情信息总结", { exact: true })).toBeVisible();
   await expect(
     detailPanel.getByText("我们没有看到明显效果。", { exact: true }),
   ).toBeVisible();
 
-  await detailPanel.getByRole("button", { name: "查看当天完整聊天" }).first().click();
+  await detailPanel.getByRole("button", { name: "查看完整聊天" }).click();
   const chatDrawer = page.getByRole("dialog", {
-    name: "2026-08-09 完整聊天",
+    name: "2026-08-09 · 学习效果质疑 · 完整聊天",
   });
   await expect(chatDrawer.getByText("家长", { exact: true }).first()).toBeVisible();
   await chatDrawer.getByRole("button", { name: "关闭" }).click();
@@ -257,7 +269,7 @@ test("风险学生详情直接展示业务分区和完整证据交互", async ({
 
   await detailPanel.getByRole("button", { name: "查看完整转写" }).first().click();
   const transcriptDrawer = page.getByRole("dialog", {
-    name: "2026-08-09 完整转写",
+    name: "2026-08-09 · 学习效果质疑 · 完整转写",
   });
   await expect(
     transcriptDrawer.getByText(
@@ -265,10 +277,26 @@ test("风险学生详情直接展示业务分区和完整证据交互", async ({
       { exact: true },
     ),
   ).toBeVisible();
+
+  await transcriptDrawer.getByRole("button", { name: "关闭" }).click();
+  await detailPanel.getByRole("button", { name: "查看学情详情" }).click();
+  const learningDrawer = page.getByRole("dialog", {
+    name: "2026-08-09 · 学习效果质疑 · 学情详情",
+  });
+  await expect(learningDrawer.getByText("最近两次测评")).toBeVisible();
+
+  await learningDrawer.getByRole("button", { name: "关闭" }).click();
+  await evidenceToggles.nth(2).click();
+  await expect(
+    detailPanel.getByText(
+      "沟通员工：周欣（学管）、李辰（课程顾问）",
+      { exact: true },
+    ),
+  ).toBeVisible();
 });
 
-test("三档宽度下按规则收纳三张卡片且没有横向溢出", async ({ page }) => {
-  for (const width of [1440, 1024, 768]) {
+test("四档宽度下按规则收纳三张卡片且没有横向溢出", async ({ page }) => {
+  for (const width of [1440, 1200, 1024, 768]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/#/quality/conversation");
     const detailPanel = page.getByRole("region", {
@@ -297,7 +325,8 @@ test("三档宽度下按规则收纳三张卡片且没有横向溢出", async ({
           name: "向 AI 咨询林家宁的客诉风险",
         }),
       ).toBeVisible();
-    } else if (width === 1024) {
+      await toolbar.getByRole("button", { name: "问 AI" }).click();
+    } else if (width >= 1024) {
       await expect(page.getByRole("region", { name: "选择学生" })).toBeVisible();
       await expect(page.getByRole("region", { name: "客诉 AI 助手" })).toHaveCount(0);
       await page.getByRole("button", {

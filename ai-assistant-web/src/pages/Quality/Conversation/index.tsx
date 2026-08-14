@@ -42,15 +42,42 @@ type CoreRiskSummaryItem = {
   summary: string;
 };
 
+const WIDE_WORKSPACE_QUERY = "(min-width: 1400px)";
+
+function useWideWorkspace() {
+  const [wide, setWide] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia(WIDE_WORKSPACE_QUERY).matches,
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(WIDE_WORKSPACE_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => setWide(event.matches);
+
+    setWide(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  return wide;
+}
+
 export {
   filterRiskStudents,
   getRiskEventRelatedPeople,
   riskStudentDetails,
   riskStudents,
   sortRiskStudents,
+  toRiskSource,
 } from "./riskData";
 export { getDefaultEventTime } from "./StudentSelector";
 export type {
+  EvidenceDetailItem,
+  EvidenceEmployee,
+  EvidenceSourceType,
+  LearningEvidence,
+  PhoneEvidence,
   RelatedPerson,
   RiskEvent,
   RiskEventGroup,
@@ -62,6 +89,7 @@ export type {
   RiskStudentFilters,
   RiskStudentSort,
   RiskTextSegment,
+  WechatEvidence,
 } from "./riskData";
 
 export function RiskSourceTags({ values }: { values: RiskSource[] }) {
@@ -117,7 +145,7 @@ export function getCoreRiskSummaries(studentId: string): CoreRiskSummaryItem[] {
       group.events.map((event) => ({
         id: event.id,
         date: group.date,
-        summary: event.aiSummary,
+        summary: event.riskSummary,
       })),
     ) ?? []
   );
@@ -217,7 +245,7 @@ export default function ComplaintWarningPage() {
       records.find((student) => student.id === selectedStudentId) ?? null,
     [records, selectedStudentId],
   );
-  const wide = Boolean(screens.xl);
+  const wide = useWideWorkspace();
   const medium = !wide && Boolean(screens.lg);
   const assistantOpen = toolbar?.assistantOpen ?? localAssistantOpen;
   const setAssistantOpen = toolbar?.setAssistantOpen ?? setLocalAssistantOpen;

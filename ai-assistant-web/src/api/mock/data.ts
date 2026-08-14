@@ -235,8 +235,8 @@ export function createAssistantPayload(
 
     const studentName = detail.student.studentName;
     const sources = [
-      { id: "risk-analysis", label: "客诉预警 · AI 风险分析" },
-      { id: "risk-evidence", label: "客诉预警 · 风险事件与原始证据" },
+      { id: "risk-detail", label: "客诉预警 · 风险详情" },
+      { id: "risk-evidence", label: "客诉预警 · 来源证据" },
     ];
 
     if (/话术|家长|沟通|回复/.test(text)) {
@@ -250,7 +250,7 @@ export function createAssistantPayload(
       const suggestions = detail.eventGroups
         .flatMap((group) => group.events)
         .slice(0, 3)
-        .map((event, index) => `${index + 1}. ${event.aiSuggestion}`)
+        .map((event, index) => `${index + 1}. ${event.handlingSuggestion}`)
         .join("\n");
       return {
         content: `建议按以下顺序跟进${studentName}：\n\n${suggestions}`,
@@ -259,7 +259,7 @@ export function createAssistantPayload(
     }
 
     return {
-      content: `${studentName}当前为${detail.student.riskLevel === "high" ? "高" : detail.student.riskLevel === "medium" ? "中" : "低"}风险。${detail.aiSummary}\n\n主要风险主题：${detail.themes.map((theme) => `${theme.label} × ${theme.count}`).join("、")}。`,
+      content: `${studentName}当前为${detail.student.riskLevel === "high" ? "高" : detail.student.riskLevel === "medium" ? "中" : "低"}风险。${detail.aiSummary}\n\n主要风险类型：${detail.themes.map((theme) => `${theme.label} × ${theme.count}`).join("、")}。`,
       sources,
     };
   }

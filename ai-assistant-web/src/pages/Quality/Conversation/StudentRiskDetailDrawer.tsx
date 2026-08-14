@@ -1,9 +1,10 @@
 import {
-  BulbOutlined,
+  BarChartOutlined,
   FileTextOutlined,
   PauseCircleOutlined,
   PhoneOutlined,
   PlayCircleOutlined,
+  TeamOutlined,
   UserOutlined,
   WechatOutlined,
 } from "@ant-design/icons";
@@ -11,7 +12,9 @@ import {
   Avatar,
   Button,
   Card,
+  Collapse,
   Descriptions,
+  Divider,
   Drawer,
   Empty,
   Flex,
@@ -21,33 +24,25 @@ import {
   Timeline,
   Typography,
 } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
-  PhoneEvidence,
+  EvidenceEmployee,
+  EvidenceSourceType,
   RiskEvent,
   RiskEvidence,
   RiskStudentDetail,
   RiskTextSegment,
-  WechatEvidence,
 } from "./riskData";
-import { riskSourceMeta } from "./riskData";
+import { evidenceSourceMeta } from "./riskData";
 import { useStudentRiskDetailStyles } from "./StudentRiskDetailDrawer.styles";
 
 const { Paragraph, Text } = Typography;
 
-type SecondaryView =
-  | {
-      kind: "wechat";
-      date: string;
-      theme: string;
-      evidence: WechatEvidence;
-    }
-  | {
-      kind: "phone";
-      date: string;
-      theme: string;
-      evidence: PhoneEvidence;
-    };
+type SecondaryView = {
+  date: string;
+  riskType: string;
+  evidence: RiskEvidence;
+};
 
 export type StudentRiskDetailProps = {
   detail: RiskStudentDetail | null;
@@ -63,6 +58,30 @@ function SegmentedText({ segments }: { segments: RiskTextSegment[] }) {
       ))}
     </>
   );
+}
+
+function formatEmployees(employees: EvidenceEmployee[]) {
+  return employees
+    .map((employee) => `${employee.name}（${employee.role}）`)
+    .join("、");
+}
+
+function sourceIcon(sourceType: EvidenceSourceType) {
+  if (sourceType === "wechat_direct") return <WechatOutlined />;
+  if (sourceType === "wechat_group") return <TeamOutlined />;
+  if (sourceType === "phone_outbound") return <PhoneOutlined />;
+  return <BarChartOutlined />;
+}
+
+function secondaryViewTitle(view: SecondaryView) {
+  const detailLabel =
+    view.evidence.sourceType === "phone_outbound"
+      ? "完整转写"
+      : view.evidence.sourceType === "learning_info"
+        ? "学情详情"
+        : "完整聊天";
+
+  return `${view.date} · ${view.riskType} · ${detailLabel}`;
 }
 
 function ProfileSection({ detail }: { detail: RiskStudentDetail }) {
@@ -105,262 +124,195 @@ function ProfileSection({ detail }: { detail: RiskStudentDetail }) {
   );
 }
 
-function AnalysisSection({ detail }: { detail: RiskStudentDetail }) {
-  const { styles } = useStudentRiskDetailStyles();
-
-  return (
-    <section aria-label="AI 风险分析">
-      <Card size="small" title="AI 风险分析">
-        <Descriptions
-          className={styles.analysisDescriptions}
-          size="small"
-          column={{ xs: 1, sm: 2 }}
-          items={[
-            {
-              key: "summary",
-              label: "AI 综合风险总结",
-              span: 2,
-              children: detail.aiSummary,
-            },
-            {
-              key: "themes",
-              label: "主要风险主题",
-              span: 2,
-              children: detail.themes
-                .map((theme) => `${theme.label} × ${theme.count}`)
-                .join("、"),
-            },
-            {
-              key: "handlingSuggestion",
-              label: "处理建议",
-              span: 2,
-              children: detail.handlingSuggestion,
-            },
-          ]}
-          data-testid="risk-overview"
-        />
-      </Card>
-    </section>
-  );
-}
-
 type EvidenceBlockProps = {
-  date: string;
-  theme: string;
   evidence: RiskEvidence;
   playingEvidenceId: string | null;
   onTogglePlay: (evidenceId: string) => void;
-  onOpenSecondary: (view: SecondaryView) => void;
+  onOpenSecondary: (evidence: RiskEvidence) => void;
 };
 
 function EvidenceBlock({
-  date,
-  theme,
   evidence,
   playingEvidenceId,
   onTogglePlay,
   onOpenSecondary,
 }: EvidenceBlockProps) {
   const { styles } = useStudentRiskDetailStyles();
-
-  if (evidence.type === "wechat") {
-    return (
-      <Card
-        size="small"
-        className={styles.evidenceBlock}
-        data-evidence-type="wechat"
-      >
-        <Descriptions
-          className={styles.evidenceDescription}
-          size="small"
-          column={{ xs: 1, sm: 2 }}
-          items={[
-            {
-              key: "source",
-              label: "证据来源",
-              children: riskSourceMeta.wechat,
-            },
-            {
-              key: "role",
-              label: "沟通角色",
-              children: evidence.communicationRole,
-            },
-            {
-              key: "employee",
-              label: "沟通员工",
-              children: evidence.employee,
-            },
-            {
-              key: "time",
-              label: "沟通时间",
-              children: evidence.occurredAt,
-            },
-          ]}
-        />
-        <div className={styles.evidenceField}>
-          <Text type="secondary">聊天内容总结</Text>
-          <div className={styles.evidenceExcerpt}>
-            <SegmentedText segments={evidence.excerpt} />
-          </div>
-        </div>
-        <div className={styles.actionRow}>
-          <Button
-            type="link"
-            size="small"
-            icon={<FileTextOutlined />}
-            onClick={() =>
-              onOpenSecondary({
-                kind: "wechat",
-                date,
-                theme,
-                evidence,
-              })
-            }
-          >
-            查看当天完整聊天
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
+  const meta = evidenceSourceMeta[evidence.sourceType];
   const playing = playingEvidenceId === evidence.id;
 
   return (
     <Card
       size="small"
       className={styles.evidenceBlock}
-      data-evidence-type="phone"
+      data-evidence-source={evidence.sourceType}
     >
-      <Descriptions
-        className={styles.evidenceDescription}
-        size="small"
-        column={{ xs: 1, sm: 2 }}
-        items={[
-          {
-            key: "source",
-            label: "证据来源",
-            children: riskSourceMeta.phone,
-          },
-          {
-            key: "role",
-            label: "沟通角色",
-            children: evidence.outboundRole,
-          },
-          {
-            key: "employee",
-            label: "沟通员工",
-            children: evidence.employee,
-          },
-          {
-            key: "time",
-            label: "沟通时间",
-            children: evidence.calledAt,
-          },
-          {
-            key: "duration",
-            label: "通话时长",
-            children: evidence.duration,
-          },
-        ]}
-      />
-      <div className={styles.evidenceField}>
-        <Text type="secondary">聊天内容总结</Text>
-        <div className={styles.evidenceExcerpt}>
-          <SegmentedText segments={evidence.transcriptExcerpt} />
-        </div>
+      <div className={styles.evidenceSummary}>
+        <Text strong>{meta.summaryLabel}</Text>
+        <Paragraph className={styles.evidenceSummaryText}>
+          <SegmentedText segments={evidence.contentSummary} />
+        </Paragraph>
       </div>
+
+      <Flex className={styles.evidenceMeta} align="center" gap={8} wrap>
+        <Text type="secondary">
+          {sourceIcon(evidence.sourceType)} {meta.label}
+        </Text>
+        {evidence.employees.length ? (
+          <>
+            <Divider orientation="vertical" />
+            <Text type="secondary">
+              沟通员工：{formatEmployees(evidence.employees)}
+            </Text>
+          </>
+        ) : null}
+        <Divider orientation="vertical" />
+        <Text type="secondary">
+          {evidence.sourceType === "learning_info" ? "数据时间" : "沟通时间"}：
+          {evidence.occurredAt}
+        </Text>
+        {evidence.sourceType === "phone_outbound" ? (
+          <>
+            <Divider orientation="vertical" />
+            <Text type="secondary">通话时长：{evidence.duration}</Text>
+          </>
+        ) : null}
+      </Flex>
+
       <div className={styles.actionRow}>
-        <Button
-          type="link"
-          size="small"
-          icon={playing ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-          aria-pressed={playing}
-          onClick={() => onTogglePlay(evidence.id)}
-        >
-          {playing ? "暂停通话录音" : "播放通话录音"}
-        </Button>
+        {evidence.sourceType === "phone_outbound" ? (
+          <Button
+            type="link"
+            size="small"
+            icon={playing ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+            aria-pressed={playing}
+            onClick={() => onTogglePlay(evidence.id)}
+          >
+            {playing ? "暂停通话录音" : "播放通话录音"}
+          </Button>
+        ) : null}
         <Button
           type="link"
           size="small"
           icon={<FileTextOutlined />}
-          onClick={() =>
-            onOpenSecondary({
-              kind: "phone",
-              date,
-              theme,
-              evidence,
-            })
-          }
+          onClick={() => onOpenSecondary(evidence)}
         >
-          查看完整转写
+          {meta.actionLabel}
         </Button>
       </div>
     </Card>
   );
 }
 
-type TimelineEventProps = {
-  date: string;
-  event: RiskEvent;
-  playingEvidenceId: string | null;
-  onTogglePlay: (evidenceId: string) => void;
-  onOpenSecondary: (view: SecondaryView) => void;
-};
-
-function TimelineEvent({
-  date,
+function EvidenceSection({
   event,
   playingEvidenceId,
   onTogglePlay,
   onOpenSecondary,
-}: TimelineEventProps) {
+}: {
+  event: RiskEvent;
+  playingEvidenceId: string | null;
+  onTogglePlay: (evidenceId: string) => void;
+  onOpenSecondary: (evidence: RiskEvidence) => void;
+}) {
+  const { styles } = useStudentRiskDetailStyles();
+  const sourceCounts = useMemo(() => {
+    const counts = new Map<EvidenceSourceType, number>();
+    for (const evidence of event.evidence) {
+      counts.set(evidence.sourceType, (counts.get(evidence.sourceType) ?? 0) + 1);
+    }
+    return [...counts.entries()];
+  }, [event.evidence]);
+
+  if (!event.evidence.length) {
+    return (
+      <div className={styles.emptyEvidence}>
+        <Text type="secondary">暂无来源证据</Text>
+      </div>
+    );
+  }
+
+  return (
+    <Collapse
+      className={styles.evidenceCollapse}
+      size="small"
+      expandIconPlacement="end"
+      items={[
+        {
+          key: "source-evidence",
+          label: (
+            <Flex className={styles.evidenceCollapseLabel} align="center" gap={8} wrap>
+              <Text strong>来源证据 {event.evidence.length}条</Text>
+              <Space size={[4, 4]} wrap>
+                {sourceCounts.map(([sourceType, count]) => (
+                  <Tag key={sourceType} icon={sourceIcon(sourceType)}>
+                    {evidenceSourceMeta[sourceType].label} × {count}
+                  </Tag>
+                ))}
+              </Space>
+            </Flex>
+          ),
+          children: (
+            <div className={styles.evidenceList}>
+              {event.evidence.map((evidence) => (
+                <EvidenceBlock
+                  key={evidence.id}
+                  evidence={evidence}
+                  playingEvidenceId={playingEvidenceId}
+                  onTogglePlay={onTogglePlay}
+                  onOpenSecondary={onOpenSecondary}
+                />
+              ))}
+            </div>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+function TimelineEvent({
+  event,
+  playingEvidenceId,
+  onTogglePlay,
+  onOpenSecondary,
+}: {
+  event: RiskEvent;
+  playingEvidenceId: string | null;
+  onTogglePlay: (evidenceId: string) => void;
+  onOpenSecondary: (evidence: RiskEvidence) => void;
+}) {
   const { styles } = useStudentRiskDetailStyles();
 
   return (
-    <Card size="small" className={styles.timelineEvent}>
-      <div className={styles.themeHeader}>
-        <Descriptions
-          className={styles.eventDescriptions}
-          size="small"
-          column={1}
-          items={[
-            {
-              key: "theme",
-              label: "风险主题",
-              children: <Text strong>{event.theme}</Text>,
-            },
-          ]}
-        />
-      </div>
-      <div className={styles.evidenceField}>
-        <div className={styles.evidenceList}>
-          {event.evidence.map((evidence) => (
-            <EvidenceBlock
-              key={evidence.id}
-              date={date}
-              theme={event.theme}
-              evidence={evidence}
-              playingEvidenceId={playingEvidenceId}
-              onTogglePlay={onTogglePlay}
-              onOpenSecondary={onOpenSecondary}
-            />
-          ))}
-        </div>
-      </div>
-      <div
-        className={styles.summaryField}
-        data-testid="risk-event-ai-suggestion"
-      >
-        <Text type="secondary">
-          <BulbOutlined
-            aria-hidden="true"
-            style={{ marginInlineEnd: 4 }}
-          />
-          AI建议
+    <Card size="small" className={styles.riskTypeCard}>
+      <div className={styles.riskTypeHeader}>
+        <Text type="secondary">风险类型</Text>
+        <Text className={styles.riskTypeValue} strong>
+          {event.riskType}
         </Text>
-        <div className={styles.summaryValue}>{event.aiSuggestion}</div>
       </div>
+
+      <div className={styles.riskSummary}>
+        <Text type="secondary">风险总结</Text>
+        <Paragraph className={styles.riskSummaryText}>
+          {event.riskSummary}
+        </Paragraph>
+      </div>
+
+      <div className={styles.riskSummary}>
+        <Text type="secondary">处理建议</Text>
+        <Paragraph className={styles.riskSummaryText}>
+          {event.handlingSuggestion}
+        </Paragraph>
+      </div>
+
+      <EvidenceSection
+        event={event}
+        playingEvidenceId={playingEvidenceId}
+        onTogglePlay={onTogglePlay}
+        onOpenSecondary={onOpenSecondary}
+      />
     </Card>
   );
 }
@@ -379,35 +331,40 @@ function EventsSection({
   const { styles } = useStudentRiskDetailStyles();
 
   return (
-    <section aria-label="风险事件与原始证据">
-      <Card size="small" title="风险事件与原始证据">
+    <section aria-label="风险详情">
+      <Card size="small" title="风险详情">
         <div className={styles.eventsBody}>
-        {detail.eventGroups.length ? (
-          <Timeline
-            className={styles.eventsTimeline}
-            mode="start"
-            items={detail.eventGroups.map((group) => ({
-              color: "blue",
-              title: <Text strong>{group.date}</Text>,
-              content: (
-                <div className={styles.timelineEventList}>
-                  {group.events.map((event) => (
-                    <TimelineEvent
-                      key={event.id}
-                      date={group.date}
-                      event={event}
-                      playingEvidenceId={playingEvidenceId}
-                      onTogglePlay={onTogglePlay}
-                      onOpenSecondary={onOpenSecondary}
-                    />
-                  ))}
-                </div>
-              ),
-            }))}
-          />
-        ) : (
-          <Empty description="暂无风险事件证据" />
-        )}
+          {detail.eventGroups.length ? (
+            <Timeline
+              className={styles.eventsTimeline}
+              mode="start"
+              items={detail.eventGroups.map((group) => ({
+                color: "blue",
+                title: <Text strong>{group.date}</Text>,
+                content: (
+                  <div className={styles.timelineEventList}>
+                    {group.events.map((event) => (
+                      <TimelineEvent
+                        key={event.id}
+                        event={event}
+                        playingEvidenceId={playingEvidenceId}
+                        onTogglePlay={onTogglePlay}
+                        onOpenSecondary={(evidence) =>
+                          onOpenSecondary({
+                            date: group.date,
+                            riskType: event.riskType,
+                            evidence,
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                ),
+              }))}
+            />
+          ) : (
+            <Empty description="暂无风险详情" />
+          )}
         </div>
       </Card>
     </section>
@@ -425,11 +382,7 @@ function SecondaryEvidenceDrawer({
 
   return (
     <Drawer
-      title={
-        view
-          ? `${view.date} ${view.kind === "wechat" ? "完整聊天" : "完整转写"}`
-          : undefined
-      }
+      title={view ? secondaryViewTitle(view) : undefined}
       size="min(560px, 100vw)"
       open={Boolean(view)}
       onClose={onClose}
@@ -440,21 +393,14 @@ function SecondaryEvidenceDrawer({
         <div className={styles.nestedDrawerBody}>
           <Flex vertical gap={16}>
             <Flex justify="space-between" align="center" gap={8} wrap>
-              <Text strong>{view.theme}</Text>
-              <Tag
-                icon={
-                  view.kind === "wechat" ? (
-                    <WechatOutlined />
-                  ) : (
-                    <PhoneOutlined />
-                  )
-                }
-              >
-                {view.kind === "wechat" ? "微信（云客）" : "电话外呼"}
+              <Text strong>{view.riskType}</Text>
+              <Tag icon={sourceIcon(view.evidence.sourceType)}>
+                {evidenceSourceMeta[view.evidence.sourceType].label}
               </Tag>
             </Flex>
 
-            {view.kind === "wechat" ? (
+            {view.evidence.sourceType === "wechat_direct" ||
+            view.evidence.sourceType === "wechat_group" ? (
               <List
                 className={styles.chatList}
                 itemLayout="horizontal"
@@ -477,7 +423,7 @@ function SecondaryEvidenceDrawer({
                   </List.Item>
                 )}
               />
-            ) : (
+            ) : view.evidence.sourceType === "phone_outbound" ? (
               <div>
                 <Descriptions
                   size="small"
@@ -486,12 +432,12 @@ function SecondaryEvidenceDrawer({
                     {
                       key: "employee",
                       label: "外呼员工",
-                      children: `${view.evidence.employee} / ${view.evidence.outboundRole}`,
+                      children: formatEmployees(view.evidence.employees),
                     },
                     {
                       key: "calledAt",
                       label: "呼叫时间",
-                      children: view.evidence.calledAt,
+                      children: view.evidence.occurredAt,
                     },
                     {
                       key: "duration",
@@ -504,7 +450,26 @@ function SecondaryEvidenceDrawer({
                   <SegmentedText segments={view.evidence.fullTranscript} />
                 </Paragraph>
               </div>
-            )}
+            ) : view.evidence.sourceType === "learning_info" ? (
+              <Descriptions
+                className={styles.learningDetails}
+                size="small"
+                bordered
+                column={1}
+                items={[
+                  {
+                    key: "occurredAt",
+                    label: "数据时间",
+                    children: view.evidence.occurredAt,
+                  },
+                  ...view.evidence.detailItems.map((item, index) => ({
+                    key: `${item.label}-${index}`,
+                    label: item.label,
+                    children: item.value,
+                  })),
+                ]}
+              />
+            ) : null}
           </Flex>
         </div>
       ) : null}
@@ -540,7 +505,6 @@ export function StudentRiskDetail({ detail }: StudentRiskDetailProps) {
         >
           <div className={styles.content}>
             <ProfileSection detail={detail} />
-            <AnalysisSection detail={detail} />
             <EventsSection
               detail={detail}
               playingEvidenceId={playingEvidenceId}

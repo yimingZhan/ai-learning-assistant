@@ -15,23 +15,6 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: ${token.margin}px;
   `,
-  analysisDescriptions: css`
-    .ant-descriptions-item-label {
-      color: ${token.colorTextSecondary};
-      white-space: nowrap;
-    }
-
-    .ant-descriptions-item-content {
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-
-    @media (max-width: 576px) {
-      .ant-descriptions-item-label {
-        white-space: normal;
-      }
-    }
-  `,
   eventsBody: css`
     min-width: 0;
   `,
@@ -88,67 +71,111 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: ${token.margin}px;
   `,
-  timelineEvent: css`
+  riskTypeCard: css`
     min-width: 0;
+
+    > .ant-card-body {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: ${token.margin}px;
+    }
   `,
-  themeHeader: css`
+  riskTypeHeader: css`
+    display: flex;
     min-width: 0;
+    align-items: baseline;
+    gap: ${token.margin}px;
     padding-bottom: ${token.paddingSM}px;
     border-bottom: 1px solid ${token.colorBorderSecondary};
   `,
-  eventDescriptions: css`
-    .ant-descriptions-item-label,
-    .ant-descriptions-item-content {
-      min-width: 0;
-      overflow-wrap: anywhere;
-    }
-  `,
-  summaryField: css`
+  riskTypeValue: css`
     min-width: 0;
-    margin-top: ${token.marginSM}px;
-  `,
-  summaryValue: css`
-    margin-top: ${token.marginXS}px;
+    color: ${token.colorTextHeading};
+    font-size: ${token.fontSizeLG}px;
     line-height: ${token.lineHeightLG};
     overflow-wrap: anywhere;
   `,
-  evidenceField: css`
+  riskSummary: css`
     min-width: 0;
-    margin-top: ${token.margin}px;
+  `,
+  riskSummaryText: css`
+    margin: ${token.marginXS}px 0 0 !important;
+    color: ${token.colorText};
+    line-height: ${token.lineHeightLG};
+    overflow-wrap: anywhere;
+  `,
+  evidenceCollapse: css`
+    min-width: 0;
+    background: ${token.colorBgContainer};
+
+    > .ant-collapse-item > .ant-collapse-header {
+      align-items: center;
+    }
+
+    .ant-collapse-content-box {
+      padding: ${token.padding}px !important;
+      background: ${token.colorFillQuaternary};
+    }
+  `,
+  evidenceCollapseLabel: css`
+    min-width: 0;
+
+    .ant-tag {
+      margin-inline-end: 0;
+      color: ${token.colorTextSecondary};
+    }
   `,
   evidenceList: css`
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: ${token.margin}px;
+    gap: ${token.marginSM}px;
   `,
   evidenceBlock: css`
     min-width: 0;
+    border-color: ${token.colorBorderSecondary};
 
-    .ant-card-body {
+    > .ant-card-body {
       display: flex;
       min-width: 0;
       flex-direction: column;
       gap: ${token.marginSM}px;
     }
   `,
-  evidenceDescription: css`
-    .ant-descriptions-item-label,
-    .ant-descriptions-item-content {
-      min-width: 0;
-      overflow-wrap: anywhere;
+  evidenceSummary: css`
+    min-width: 0;
+    padding: ${token.paddingSM}px ${token.padding}px;
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorBgContainer};
+  `,
+  evidenceSummaryText: css`
+    margin: ${token.marginXS}px 0 0 !important;
+    color: ${token.colorText};
+    font-size: ${token.fontSize}px;
+    line-height: ${token.lineHeightLG};
+    overflow-wrap: anywhere;
+  `,
+  evidenceMeta: css`
+    min-width: 0;
+    color: ${token.colorTextSecondary};
+    font-size: ${token.fontSizeSM}px;
+
+    .ant-divider-vertical {
+      margin-inline: 0;
     }
 
     @media (max-width: 576px) {
-      .ant-descriptions-item-label {
-        white-space: normal;
+      align-items: flex-start;
+
+      .ant-divider-vertical {
+        display: none;
+      }
+
+      > * {
+        flex-basis: 100%;
       }
     }
-  `,
-  evidenceExcerpt: css`
-    margin-top: ${token.marginXS}px;
-    line-height: ${token.lineHeightLG};
-    overflow-wrap: anywhere;
   `,
   actionRow: css`
     display: flex;
@@ -158,6 +185,12 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     .ant-btn {
       padding-inline: 0;
     }
+  `,
+  emptyEvidence: css`
+    padding: ${token.paddingSM}px ${token.padding}px;
+    border: 1px dashed ${token.colorBorder};
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorFillQuaternary};
   `,
   nestedDrawerBody: css`
     padding: ${token.paddingLG}px;
@@ -188,5 +221,21 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     line-height: ${token.lineHeightLG};
     white-space: pre-line;
     overflow-wrap: anywhere;
+  `,
+  learningDetails: css`
+    .ant-descriptions-item-label {
+      width: 140px;
+      color: ${token.colorTextSecondary};
+    }
+
+    .ant-descriptions-item-content {
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 576px) {
+      .ant-descriptions-item-label {
+        width: 112px;
+      }
+    }
   `,
 }));

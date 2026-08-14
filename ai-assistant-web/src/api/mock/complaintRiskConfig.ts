@@ -174,10 +174,8 @@ function getLevel(
 
 function eventEvidence(event: RiskEvent) {
   const evidence = event.evidence[0];
-  if (!evidence) return event.aiSummary;
-  const segments =
-    evidence.type === "wechat" ? evidence.excerpt : evidence.transcriptExcerpt;
-  return segments.map((segment) => segment.text).join("");
+  if (!evidence) return event.riskSummary;
+  return evidence.contentSummary.map((segment) => segment.text).join("");
 }
 
 export function createComplaintRiskTrialResult(
@@ -226,7 +224,7 @@ export function createComplaintRiskTrialResult(
         if (!theme || theme.count < rule.minOccurrences) continue;
         const event = detail.eventGroups
           .flatMap((group) => group.events)
-          .find((item) => item.theme === rule.theme);
+          .find((item) => item.riskType === rule.theme);
         if (!event) continue;
         event.riskSources.forEach((source) => matchedSources.add(source));
         matches.push({
@@ -239,7 +237,8 @@ export function createComplaintRiskTrialResult(
       }
       summary = detail.aiSummary;
       suggestion =
-        detail.eventGroups.flatMap((group) => group.events)[0]?.aiSuggestion ??
+        detail.eventGroups.flatMap((group) => group.events)[0]
+          ?.handlingSuggestion ??
         suggestion;
     }
   }

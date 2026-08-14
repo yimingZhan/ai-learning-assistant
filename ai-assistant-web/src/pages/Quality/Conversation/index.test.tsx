@@ -17,6 +17,7 @@ import {
   riskStudentDetails,
   riskStudents,
   sortRiskStudents,
+  toRiskSource,
 } from ".";
 
 describe("CoreRiskSummaries", () => {
@@ -33,7 +34,7 @@ describe("CoreRiskSummaries", () => {
     ]);
     expect(summaries.map((item) => item.summary)).toEqual(
       riskStudentDetails["risk-student-001"].eventGroups.flatMap((group) =>
-        group.events.map((event) => event.aiSummary),
+        group.events.map((event) => event.riskSummary),
       ),
     );
   });
@@ -86,6 +87,7 @@ describe("RelatedPeopleText", () => {
   it("从风险事件证据中提取员工姓名并合并职务", () => {
     expect(getRiskEventRelatedPeople("risk-student-001")).toEqual([
       { name: "周欣", roles: ["学管", "课程顾问"] },
+      { name: "李辰", roles: ["课程顾问"] },
     ]);
 
     const { container } = render(
@@ -94,6 +96,7 @@ describe("RelatedPeopleText", () => {
       />,
     );
     expect(screen.getByText("周欣（学管、课程顾问）")).toBeTruthy();
+    expect(screen.getByText("李辰（课程顾问）")).toBeTruthy();
     expect(container.querySelector(".ant-tag")).toBeNull();
   });
 
@@ -198,7 +201,11 @@ describe("riskStudentDetails", () => {
 
       for (const event of events) {
         const evidenceSources = [
-          ...new Set(event.evidence.map((evidence) => evidence.type)),
+          ...new Set(
+            event.evidence
+              .map((evidence) => toRiskSource(evidence.sourceType))
+              .filter((source) => source !== null),
+          ),
         ].sort();
         expect(evidenceSources).toEqual([...event.riskSources].sort());
       }
@@ -221,5 +228,21 @@ describe("riskStudentDetails", () => {
       { label: "退费倾向", count: 1 },
       { label: "服务响应不满", count: 1 },
     ]);
+    expect(
+      new Set(
+        detail.eventGroups.flatMap((group) =>
+          group.events.flatMap((event) =>
+            event.evidence.map((evidence) => evidence.sourceType),
+          ),
+        ),
+      ),
+    ).toEqual(
+      new Set([
+        "wechat_direct",
+        "wechat_group",
+        "phone_outbound",
+        "learning_info",
+      ]),
+    );
   });
 });
