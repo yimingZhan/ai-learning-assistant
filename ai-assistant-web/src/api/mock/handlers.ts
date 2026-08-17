@@ -3,7 +3,6 @@ import type {
   AssistantStreamEvent,
   ChatMessage,
   ComplaintRiskConfig,
-  ComplaintRiskTrialRequest,
   ConversationSummary,
   PlatformAssistantConfig,
   PlatformAssistantTrialRequest,
@@ -21,7 +20,6 @@ import {
   students,
   type MockStore,
 } from "./data";
-import { createComplaintRiskTrialResult } from "./complaintRiskConfig";
 import {
   capabilityIdForContext,
   createPlatformAssistantRuntime,
@@ -32,6 +30,7 @@ import {
   diagnoseRenewalStudent,
   getRenewalStudentDiagnosis,
   listRenewalOpportunities,
+  renewalConfigurationErrors,
   renewalStudentRecords,
   runRenewalDiagnosis,
 } from "./renewal";
@@ -484,14 +483,6 @@ export const handlers = [
   ),
 
   http.post(
-    "*/api/v1/ai-config/complaint-risk/trial",
-    async ({ request }) => {
-      const body = (await request.json()) as ComplaintRiskTrialRequest;
-      return HttpResponse.json(createComplaintRiskTrialResult(body));
-    },
-  ),
-
-  http.post(
     "*/api/v1/ai-config/complaint-risk/publish",
     async ({ request }) => {
       const body = (await request.json()) as {
@@ -518,6 +509,7 @@ export const handlers = [
         changeNote: body.changeNote,
         publishedAt,
         publishedBy: currentUser.name,
+        riskTypes: structuredClone(store.complaintRiskConfig.riskTypes),
       });
       store.complaintRiskVersionSnapshots[version] = structuredClone(
         store.complaintRiskConfig,
@@ -558,6 +550,7 @@ export const handlers = [
         changeNote: `回滚至 ${targetVersion}`,
         publishedAt,
         publishedBy: currentUser.name,
+        riskTypes: structuredClone(store.complaintRiskConfig.riskTypes),
       });
       store.complaintRiskVersionSnapshots[version] = structuredClone(
         store.complaintRiskConfig,
@@ -628,6 +621,10 @@ export const handlers = [
 
   http.patch("*/api/v1/ai-config/renewal", async ({ request }) => {
     const config = (await request.json()) as RenewalConfig;
+    const errors = renewalConfigurationErrors(config);
+    if (errors.length) {
+      return HttpResponse.json({ message: errors[0] }, { status: 400 });
+    }
     store.renewalConfig = {
       ...structuredClone(config),
       draftStatus: "saved",
@@ -639,6 +636,10 @@ export const handlers = [
 
   http.post("*/api/v1/ai-config/renewal/trial", async ({ request }) => {
     const body = (await request.json()) as RenewalTrialRequest;
+    const errors = renewalConfigurationErrors(body.config);
+    if (errors.length) {
+      return HttpResponse.json({ message: errors[0] }, { status: 400 });
+    }
     const student = renewalStudentRecords.find(
       (item) => item.id === body.studentId,
     );
@@ -657,6 +658,10 @@ export const handlers = [
       config: RenewalConfig;
       changeNote: string;
     };
+    const errors = renewalConfigurationErrors(body.config);
+    if (errors.length) {
+      return HttpResponse.json({ message: errors[0] }, { status: 400 });
+    }
     const version = nextVersion(store.renewalConfig.publishedVersion);
     const publishedAt = currentTimestamp();
     store.renewalVersions = store.renewalVersions.map((item) => ({

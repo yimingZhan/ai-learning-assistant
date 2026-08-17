@@ -22,18 +22,11 @@ corepack pnpm install
 corepack pnpm dev
 ```
 
-开发服务使用 MSW 模拟接口，实际地址以终端输出为准。
+开发服务使用 MSW 提供本地模拟接口，实际地址以终端输出为准。
 
-## 接入后端
+## 数据说明
 
-复制 `.env.example` 为 `.env.local`，并设置：
-
-```bash
-DATA_MODE=api
-API_BASE_URL=https://your-api.example.com
-```
-
-真实服务需实现 `src/api/contracts.ts` 与 `src/api/client.ts` 中约定的 REST/SSE 接口。
+本项目仅用于演示，所有学生、沟通、客诉、续费和 AI 配置数据均为前端内置的模拟数据，不连接云客、数据库、模型网关或其他外部系统。部分页面操作会在当前浏览器会话内更新模拟状态，刷新页面后恢复初始数据。
 
 ## 验证
 

@@ -29,15 +29,13 @@ export function rootContainer(container: ReactNode) {
 }
 
 export async function render(oldRender: () => void) {
-  if (process.env.DATA_MODE !== "api") {
-    const { worker } = await import("./api/mock/browser");
-    await worker.start({
-      onUnhandledRequest: "bypass",
-      serviceWorker: {
-        url: getMockServiceWorkerUrl(window.location.href),
-      },
-    });
-  }
+  const { worker } = await import("./api/mock/browser");
+  await worker.start({
+    onUnhandledRequest: "bypass",
+    serviceWorker: {
+      url: getMockServiceWorkerUrl(window.location.href),
+    },
+  });
 
   oldRender();
 }

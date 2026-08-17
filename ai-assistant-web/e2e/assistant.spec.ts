@@ -237,7 +237,7 @@ test("风险学生详情按日期和类型展示结论并渐进展开证据", as
   for (const field of ["风险类型", "风险总结", "处理建议"]) {
     await expect(detailPanel.getByText(field, { exact: true }).first()).toBeVisible();
   }
-  const evidenceToggles = detailPanel.getByRole("button", { name: /来源证据/ });
+  const evidenceToggles = detailPanel.getByRole("button", { name: /来源风险事件/ });
   await expect(evidenceToggles).toHaveCount(5);
   await expect(evidenceToggles.first()).toHaveAttribute("aria-expanded", "false");
   await expect(

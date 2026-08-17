@@ -60,11 +60,11 @@ function renderDetail() {
 }
 
 function getEvidenceToggles() {
-  return screen.getAllByRole("button", { name: /\u6765\u6e90\u8bc1\u636e/ });
+  return screen.getAllByRole("button", { name: /\u6765\u6e90\u98ce\u9669\u4e8b\u4ef6/ });
 }
 
 describe("StudentRiskDetail", () => {
-  it("以日期和风险类型展示结论，来源证据默认收起", () => {
+  it("以日期和风险类型展示结论，来源风险事件默认收起", () => {
     const { container } = renderDetail();
     const detailContent = container.querySelector(
       ".student-risk-detail-content",

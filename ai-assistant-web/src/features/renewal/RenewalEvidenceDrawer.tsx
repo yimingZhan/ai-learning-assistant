@@ -17,7 +17,7 @@ import {
   renewalConditionTypeMeta,
   renewalEvidenceSourceMeta,
   renewalRecommendationTypeMeta,
-  renewalRuleScopeMeta,
+  renewalRuleLevelMeta,
   renewalStatusMeta,
 } from "./meta";
 
@@ -57,8 +57,8 @@ export function RenewalEvidenceDrawer({
                     <Tag color={renewalConditionTypeMeta[condition.conditionType].color}>
                       {renewalConditionTypeMeta[condition.conditionType].label}
                     </Tag>
-                    <Tag color={renewalRuleScopeMeta[condition.requirementSource].color}>
-                      {renewalRuleScopeMeta[condition.requirementSource].label}
+                    <Tag color={renewalRuleLevelMeta[condition.sourceLevel].color}>
+                      {renewalRuleLevelMeta[condition.sourceLevel].label}
                     </Tag>
                   </Space>
                 ),
@@ -72,6 +72,23 @@ export function RenewalEvidenceDrawer({
                     },
                   ]
                 : []),
+              {
+                key: "sourceChain",
+                label: "目标来源链",
+                children: (
+                  <Space size={[4, 4]} wrap>
+                    {condition.sourceChain.map((source) => (
+                      <Tag
+                        key={source.ruleId}
+                        color={source.effective ? renewalRuleLevelMeta[source.level].color : undefined}
+                      >
+                        {renewalRuleLevelMeta[source.level].shortLabel}
+                        {source.effective ? "·最终生效" : ""}
+                      </Tag>
+                    ))}
+                  </Space>
+                ),
+              },
               {
                 key: "requirement",
                 label: "阶段要求",

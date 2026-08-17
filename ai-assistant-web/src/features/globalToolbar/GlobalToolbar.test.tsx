@@ -40,12 +40,12 @@ function EmbeddedToolbarHarness() {
 describe("GlobalToolbar", () => {
   beforeEach(() => window.sessionStorage.clear());
 
-  it("shows location and global actions without a search box", async () => {
+  it("shows global actions without a location breadcrumb or search box", async () => {
     renderToolbar();
 
     expect(screen.getByLabelText("全局工具栏")).toBeTruthy();
-    expect(screen.getByText("AI 质检")).toBeTruthy();
-    expect(screen.getByText("AI 客诉预警")).toBeTruthy();
+    expect(screen.queryByText("AI 质检")).toBeNull();
+    expect(screen.queryByText("AI 客诉预警")).toBeNull();
     expect(
       screen.getByRole("button", { name: "问 AI" }).getAttribute("aria-pressed"),
     ).toBe("false");

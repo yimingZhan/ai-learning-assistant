@@ -44,19 +44,7 @@ export default function WorkRemindersPage() {
 
   return (
     <PageContainer title={false}>
-      <Card
-        title={
-          <Space>
-            <Typography.Title level={4} style={{ margin: 0 }}>
-              工作提醒
-            </Typography.Title>
-            <Typography.Text type="secondary">
-              {reminders?.unreadCount ?? 0} 条未读
-            </Typography.Text>
-          </Space>
-        }
-        styles={{ body: { paddingBlock: 0 } }}
-      >
+      <Card styles={{ body: { paddingBlock: 0 } }}>
         {remindersLoading ? (
           <Flex justify="center" style={{ paddingBlock: 48 }}>
             <Spin size="small" aria-label="正在加载工作提醒" />

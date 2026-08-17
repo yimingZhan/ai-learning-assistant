@@ -650,7 +650,7 @@ export default function PlatformAssistantConfigPage() {
 
   if (loading) {
     return (
-      <PageContainer title="平台助手配置">
+      <PageContainer title={false}>
         <Flex align="center" justify="center" style={{ minHeight: 360 }}>
           <Spin size="large" description="正在加载配置" />
         </Flex>
@@ -660,7 +660,7 @@ export default function PlatformAssistantConfigPage() {
 
   if (!canView) {
     return (
-      <PageContainer title="平台助手配置">
+      <PageContainer title={false}>
         <Result status="403" title="暂无权限" subTitle="请联系 AI 平台管理员开通配置查看权限。" />
       </PageContainer>
     );
@@ -668,7 +668,7 @@ export default function PlatformAssistantConfigPage() {
 
   if (loadError || !config) {
     return (
-      <PageContainer title="平台助手配置">
+      <PageContainer title={false}>
         <Card>
           <Empty description={loadError ?? "配置加载失败"}>
             <Button type="primary" onClick={() => void loadPage()}>重新加载</Button>
@@ -896,8 +896,6 @@ export default function PlatformAssistantConfigPage() {
   return (
     <PageContainer
       className={styles.page}
-      title="平台助手配置"
-      subTitle="统一管理助手展示、AI 能力、岗位授权与回复安全策略"
       extra={[
         <Button key="trial" icon={<ExperimentOutlined />} disabled={!canEdit} onClick={() => void openTrial()}>配置试跑</Button>,
         <Button key="history" icon={<HistoryOutlined />} onClick={() => void openHistory()}>版本记录</Button>,

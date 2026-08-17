@@ -154,8 +154,8 @@ export const createInitialStore = (): MockStore => {
   const legacyConfig = structuredClone(complaintRiskConfig);
   legacyConfig.publishedVersion = "v0.9";
   legacyConfig.draftVersion = "v1.0-draft";
-  legacyConfig.rules = legacyConfig.rules.filter((rule) =>
-    ["rule-refund-intent", "rule-feedback-delay"].includes(rule.id),
+  legacyConfig.riskTypes = legacyConfig.riskTypes.filter((riskType) =>
+    ["follow-up-timeliness", "refund-intent"].includes(riskType.id),
   );
 
   return {
@@ -163,7 +163,10 @@ export const createInitialStore = (): MockStore => {
     messages: { [seedConversation.id]: structuredClone(seedMessages) },
     reminders: structuredClone(seedReminders),
     complaintRiskConfig,
-    complaintRiskVersions: createInitialComplaintRiskVersions(),
+    complaintRiskVersions: createInitialComplaintRiskVersions(
+      complaintRiskConfig,
+      legacyConfig,
+    ),
     complaintRiskVersionSnapshots: {
       "v1.0": structuredClone(complaintRiskConfig),
       "v0.9": legacyConfig,

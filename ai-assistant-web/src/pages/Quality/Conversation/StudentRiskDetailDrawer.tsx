@@ -227,7 +227,7 @@ function EvidenceSection({
   if (!event.evidence.length) {
     return (
       <div className={styles.emptyEvidence}>
-        <Text type="secondary">暂无来源证据</Text>
+        <Text type="secondary">暂无来源风险事件</Text>
       </div>
     );
   }
@@ -242,7 +242,7 @@ function EvidenceSection({
           key: "source-evidence",
           label: (
             <Flex className={styles.evidenceCollapseLabel} align="center" gap={8} wrap>
-              <Text strong>来源证据 {event.evidence.length}条</Text>
+              <Text strong>来源风险事件 {event.evidence.length}条</Text>
               <Space size={[4, 4]} wrap>
                 {sourceCounts.map(([sourceType, count]) => (
                   <Tag key={sourceType} icon={sourceIcon(sourceType)}>

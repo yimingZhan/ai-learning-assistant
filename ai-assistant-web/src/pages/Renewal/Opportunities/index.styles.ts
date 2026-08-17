@@ -34,34 +34,6 @@ export const useRenewalWorkbenchStyles = createStyles(({ css, token }) => ({
     border: 1px solid ${token.colorBorderSecondary};
     border-radius: ${token.borderRadiusLG}px;
   `,
-  titleRow: css`
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${token.margin}px;
-    padding: ${token.paddingSM}px ${token.padding}px;
-    border-bottom: 1px solid ${token.colorBorderSecondary};
-
-    @media (max-width: 767px) {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-  `,
-  pageTitle: css`
-    margin: 0 !important;
-  `,
-  titleMeta: css`
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: ${token.marginSM}px;
-
-    @media (max-width: 767px) {
-      width: 100%;
-      justify-content: space-between;
-    }
-  `,
   filters: css`
     display: flex;
     align-items: center;

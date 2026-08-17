@@ -72,42 +72,13 @@ export const useGlobalToolbarStyles = createStyles(({ css, token }) => ({
     flex: none;
     font-size: ${token.fontSizeLG}px;
   `,
-  location: css`
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-
-    .ant-breadcrumb {
-      min-width: 0;
-      white-space: nowrap;
-    }
-
-    .ant-breadcrumb ol {
-      min-width: 0;
-      flex-wrap: nowrap;
-      overflow: hidden;
-    }
-
-    .ant-breadcrumb li:last-child {
-      min-width: 0;
-      overflow: hidden;
-      color: ${token.colorText};
-      font-weight: ${token.fontWeightStrong};
-      text-overflow: ellipsis;
-    }
-
-    @media (max-width: 767px) {
-      .ant-breadcrumb li:not(:last-child) {
-        display: none;
-      }
-    }
-  `,
   actions: css`
     display: flex;
     height: 100%;
     flex: none;
     align-items: center;
     gap: ${token.marginXXS}px;
+    margin-inline-start: auto;
   `,
   actionButton: css`
     height: 32px;

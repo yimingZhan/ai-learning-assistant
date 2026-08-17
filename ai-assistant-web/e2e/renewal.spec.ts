@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/#/renewal/opportunities");
-  await expect(page.getByText("AI 续费工作台", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "续费学生" })).toBeVisible();
+  await expect(page.locator(".ant-breadcrumb")).toContainText("续费机会");
 });
 
 test("三栏工作台按学生联动续费诊断", async ({ page }) => {
@@ -35,6 +36,7 @@ test("三栏工作台按学生联动续费诊断", async ({ page }) => {
 test("筛选学生并保持可跟进与待补信息分离", async ({ page }) => {
   await page.getByRole("tab", { name: /可推荐/ }).click();
   await page.getByPlaceholder("搜索姓名或客户编号").fill("王若曦");
+  await page.getByRole("button", { name: "查询" }).click();
   await expect(page.getByRole("button", { name: /王若曦/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /陈子轩/ })).toHaveCount(0);
   await page.getByRole("button", { name: "重置筛选" }).click();
@@ -79,7 +81,7 @@ test("旧预测地址重定向机会页，三档宽度无页面级溢出", async
   for (const width of [1440, 1024, 768]) {
     await page.setViewportSize({ width, height: 900 });
     await page.reload();
-    await expect(page.getByText("AI 续费工作台", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "续费学生" })).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

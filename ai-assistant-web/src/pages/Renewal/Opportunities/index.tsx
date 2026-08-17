@@ -1,5 +1,4 @@
 import {
-  ClockCircleOutlined,
   ReloadOutlined,
   RobotOutlined,
   TeamOutlined,
@@ -58,6 +57,8 @@ export default function RenewalOpportunitiesPage() {
   const [listError, setListError] = useState<string>();
   const [view, setView] = useState<OpportunityView>("opportunity");
   const [filters, setFilters] = useState<OpportunityFilters>(initialFilters);
+  const [filterDraft, setFilterDraft] =
+    useState<OpportunityFilters>(initialFilters);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
     requestedStudentId,
   );
@@ -68,7 +69,6 @@ export default function RenewalOpportunitiesPage() {
     useState<RenewalConditionDiagnosis | null>(null);
   const [assistantFocus, setAssistantFocus] =
     useState<RenewalAssistantFocus>();
-  const [runningAll, setRunningAll] = useState(false);
   const [runningStudent, setRunningStudent] = useState(false);
   const [studentDrawerOpen, setStudentDrawerOpen] = useState(false);
   const [localAssistantOpen, setLocalAssistantOpen] = useState(false);
@@ -231,30 +231,6 @@ export default function RenewalOpportunitiesPage() {
     }, 0);
   }
 
-  async function runAllDiagnosis() {
-    setRunningAll(true);
-    try {
-      const result = await renewalApi.runDiagnosis({
-        scope: "owner",
-        triggerType: "manual",
-      });
-      const current = result.diagnoses.find(
-        (item) => item.student.id === selectedStudentId,
-      );
-      if (current) setDiagnosis(current);
-      await loadData();
-      trackAnalytics("renewal_run_manual", {
-        scope: "owner",
-        studentCount: result.diagnoses.length,
-      });
-      message.success(`已重新诊断 ${result.diagnoses.length} 名学生`);
-    } catch {
-      message.error("重新诊断失败");
-    } finally {
-      setRunningAll(false);
-    }
-  }
-
   async function runCurrentDiagnosis() {
     if (!selectedStudentId) return;
     setRunningStudent(true);
@@ -389,44 +365,22 @@ export default function RenewalOpportunitiesPage() {
       className={styles.pageContainer}
       ghost
       title={false}
-      pageHeaderRender={false}
-      breadcrumbRender={false}
+      breadcrumb={{
+        items: [{ title: "AI 续费" }, { title: "续费机会" }],
+      }}
       childrenContentStyle={{ height: "100%", padding: 0, overflow: "hidden" }}
     >
       <main className={styles.page}>
         <div className={styles.top}>
           <div className={styles.topCard}>
-            <div className={styles.titleRow}>
-              <div>
-                <Typography.Title level={4} className={styles.pageTitle}>
-                  AI 续费工作台
-                </Typography.Title>
-                <Typography.Text type="secondary">
-                  先核对规则结论与原始证据，再准备产品沟通和跟进动作。
-                </Typography.Text>
-              </div>
-              <div className={styles.titleMeta}>
-                <Typography.Text type="secondary">
-                  <ClockCircleOutlined /> 最近计算：{data?.summary.updatedAt ?? "加载中"}
-                </Typography.Text>
-                <Button
-                  icon={<ReloadOutlined />}
-                  loading={runningAll}
-                  onClick={() => void runAllDiagnosis()}
-                >
-                  重新计算列表
-                </Button>
-              </div>
-            </div>
-
             <div className={styles.filters} aria-label="续费学生筛选">
               <Input
                 allowClear
                 className={styles.search}
                 placeholder="搜索姓名或客户编号"
-                value={filters.keyword}
+                value={filterDraft.keyword}
                 onChange={(event) =>
-                  setFilters((current) => ({
+                  setFilterDraft((current) => ({
                     ...current,
                     keyword: event.target.value || undefined,
                   }))
@@ -437,10 +391,10 @@ export default function RenewalOpportunitiesPage() {
                 aria-label="年级"
                 className={styles.filterSelect}
                 placeholder="年级"
-                value={filters.grade}
+                value={filterDraft.grade}
                 options={gradeOptions}
                 onChange={(grade) =>
-                  setFilters((current) => ({ ...current, grade }))
+                  setFilterDraft((current) => ({ ...current, grade }))
                 }
               />
               <Select
@@ -450,10 +404,10 @@ export default function RenewalOpportunitiesPage() {
                 className={styles.ownerSelect}
                 placeholder="负责人"
                 optionFilterProp="label"
-                value={filters.owner}
+                value={filterDraft.owner}
                 options={ownerOptions}
                 onChange={(owner) =>
-                  setFilters((current) => ({ ...current, owner }))
+                  setFilterDraft((current) => ({ ...current, owner }))
                 }
               />
               <Select
@@ -461,13 +415,13 @@ export default function RenewalOpportunitiesPage() {
                 aria-label="优先级"
                 className={styles.filterSelect}
                 placeholder="优先级"
-                value={filters.priority}
+                value={filterDraft.priority}
                 options={Object.entries(renewalPriorityMeta).map(([value, meta]) => ({
                   value,
                   label: meta.label,
                 }))}
                 onChange={(priority) =>
-                  setFilters((current) => ({ ...current, priority }))
+                  setFilterDraft((current) => ({ ...current, priority }))
                 }
               />
               <Select
@@ -475,10 +429,10 @@ export default function RenewalOpportunitiesPage() {
                 aria-label="条件大类"
                 className={styles.filterSelect}
                 placeholder="条件大类"
-                value={filters.category}
+                value={filterDraft.category}
                 options={renewalCategoryOptions}
                 onChange={(category) =>
-                  setFilters((current) => ({ ...current, category }))
+                  setFilterDraft((current) => ({ ...current, category }))
                 }
               />
               <Select
@@ -486,18 +440,28 @@ export default function RenewalOpportunitiesPage() {
                 aria-label="触发方式"
                 className={styles.filterSelect}
                 placeholder="触发方式"
-                value={filters.triggerType}
+                value={filterDraft.triggerType}
                 options={Object.entries(renewalTriggerMeta).map(([value, label]) => ({
                   value,
                   label,
                 }))}
                 onChange={(triggerType) =>
-                  setFilters((current) => ({ ...current, triggerType }))
+                  setFilterDraft((current) => ({ ...current, triggerType }))
                 }
               />
               <Button
+                type="primary"
+                aria-label="查询"
+                onClick={() => setFilters(filterDraft)}
+              >
+                查询
+              </Button>
+              <Button
                 aria-label="重置筛选"
-                onClick={() => setFilters(initialFilters)}
+                onClick={() => {
+                  setFilterDraft(initialFilters);
+                  setFilters(initialFilters);
+                }}
               >
                 重置
               </Button>

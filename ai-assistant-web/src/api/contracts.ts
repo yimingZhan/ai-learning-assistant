@@ -296,56 +296,12 @@ export type AssistantStreamEvent =
   | { type: "sources"; sources: Source[] }
   | { type: "done"; messageId: string };
 
-export type ComplaintRiskDataSource =
-  | "wechat"
-  | "phone"
-  | "learning"
-  | "service"
-  | "complaintHistory";
-
-export type ComplaintRiskLevel = "high" | "medium" | "low";
-
-export type ComplaintRiskPromptVariable = {
-  key: string;
-  label: string;
-};
-
-export type ComplaintRiskPromptConfig = {
-  systemPrompt: string;
-  analysisPrompt: string;
-  suggestionPrompt: string;
-  variables: ComplaintRiskPromptVariable[];
-};
-
-export type ComplaintRiskRule = {
+export type ComplaintRiskTypeConfig = {
   id: string;
   name: string;
-  theme: string;
-  description: string;
-  dataSources: ComplaintRiskDataSource[];
   keywords: string[];
-  windowDays: number;
-  minOccurrences: number;
-  score: number;
-  priority: number;
-  forceLevel?: ComplaintRiskLevel;
-  enabled: boolean;
-};
-
-export type ComplaintRiskRuntimeStrategy = {
-  thresholds: {
-    high: number;
-    medium: number;
-    low: number;
-  };
-  analysisWindowDays: number;
-  dedupeHours: number;
-  minimumConfidence: number;
-  crossChannelBonus: number;
-  dataSources: ComplaintRiskDataSource[];
-  highRiskRequiresReview: boolean;
-  notificationTargets: Array<"owner" | "quality" | "manager">;
-  runFrequency: "realtime" | "30m" | "1h" | "daily";
+  positiveExamples: string[];
+  negativeExamples: string[];
 };
 
 export type ComplaintRiskConfig = {
@@ -356,9 +312,7 @@ export type ComplaintRiskConfig = {
   draftStatus: "published" | "saved";
   updatedAt: string;
   updatedBy: string;
-  prompts: ComplaintRiskPromptConfig;
-  rules: ComplaintRiskRule[];
-  strategy: ComplaintRiskRuntimeStrategy;
+  riskTypes: ComplaintRiskTypeConfig[];
 };
 
 export type ComplaintRiskVersion = {
@@ -367,33 +321,7 @@ export type ComplaintRiskVersion = {
   changeNote: string;
   publishedAt: string;
   publishedBy: string;
-};
-
-export type ComplaintRiskTrialInput =
-  | { mode: "text"; text: string }
-  | { mode: "student"; studentId: string };
-
-export type ComplaintRiskTrialRequest = {
-  config: ComplaintRiskConfig;
-  input: ComplaintRiskTrialInput;
-};
-
-export type ComplaintRiskTrialMatch = {
-  ruleId: string;
-  ruleName: string;
-  theme: string;
-  score: number;
-  evidence: string;
-};
-
-export type ComplaintRiskTrialResult = {
-  riskScore: number;
-  riskLevel?: ComplaintRiskLevel;
-  confidence: number;
-  crossChannelBonusApplied: boolean;
-  matchedRules: ComplaintRiskTrialMatch[];
-  summary: string;
-  suggestion: string;
+  riskTypes: ComplaintRiskTypeConfig[];
 };
 
 export type RenewalConditionCategory =
@@ -418,6 +346,35 @@ export type RenewalOpportunityPriority = "P0" | "P1";
 
 export type RenewalRuleScope = "baseline" | "goal";
 
+export type RenewalRuleLevel = "grade" | "destination" | "school" | "major";
+
+export type RenewalGoalDimension = "subject" | "language" | "admissions";
+
+export type RenewalCriterionMetric =
+  | "score"
+  | "grade"
+  | "count"
+  | "completion"
+  | "text";
+
+export type RenewalCriterionOperator = "gte" | "lte" | "eq" | "contains";
+
+export type RenewalCriterion = {
+  id: string;
+  label: string;
+  metric: RenewalCriterionMetric;
+  operator?: RenewalCriterionOperator;
+  value?: string | number;
+  unit?: string;
+};
+
+export type RenewalRuleSource = {
+  ruleId: string;
+  level: RenewalRuleLevel;
+  label: string;
+  effective: boolean;
+};
+
 export type RenewalCoverageQuality =
   | "met"
   | "on_track"
@@ -437,6 +394,7 @@ export type RenewalTargetProfile = {
   status: "confirmed" | "missing";
   countries: string[];
   schoolTiers: string[];
+  schools: string[];
   majors: string[];
   applicationYear?: number;
   updatedAt?: string;
@@ -471,12 +429,16 @@ export type RenewalConditionDiagnosis = {
   ruleId: string;
   requirementCode: string;
   requirementSource: RenewalRuleScope;
+  sourceLevel: RenewalRuleLevel;
+  sourceChain: RenewalRuleSource[];
   goalReference?: string;
+  dimension: RenewalGoalDimension;
   category: RenewalConditionCategory;
   conditionName: string;
   conditionType: RenewalConditionType;
   requirement: string;
   target?: string;
+  criteria: RenewalCriterion[];
   deadline: string;
   status: RenewalConditionStatus;
   coverageQuality: RenewalCoverageQuality;
@@ -546,17 +508,22 @@ export type RenewalConditionRule = {
   id: string;
   requirementCode: string;
   scope: RenewalRuleScope;
+  level: RenewalRuleLevel;
   grade: string;
   curricula: string[];
   countries: string[];
   schoolTiers: string[];
+  schools: string[];
   majors: string[];
   applicationYears: number[];
+  dimension: RenewalGoalDimension;
   category: RenewalConditionCategory;
   name: string;
   type: RenewalConditionType;
   requirement: string;
   target?: string;
+  criteriaLogic: "all";
+  criteria: RenewalCriterion[];
   deadline: string;
   evidenceSources: RenewalEvidence["source"][];
   enabled: boolean;

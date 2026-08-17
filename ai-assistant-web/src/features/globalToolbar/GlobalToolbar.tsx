@@ -1,12 +1,11 @@
 import { MenuOutlined, RobotOutlined } from "@ant-design/icons";
 import { useLocation } from "@umijs/max";
-import { Breadcrumb, Button, Tooltip } from "antd";
+import { Button, Tooltip } from "antd";
 import { HelpMenu } from "./HelpMenu";
 import { useGlobalToolbarStyles } from "./GlobalToolbar.styles";
 import { useGlobalToolbar } from "./GlobalToolbarProvider";
 import { UserMenu } from "./UserMenu";
 import { WorkReminderPopover } from "./WorkReminderPopover";
-import { getRouteLocation } from "./routeLocation";
 
 export function GlobalToolbar({
   mobile = false,
@@ -22,7 +21,6 @@ export function GlobalToolbar({
     openAssistant,
     triggerAssistant,
   } = useGlobalToolbar();
-  const routeLocation = getRouteLocation(location.pathname);
   const standaloneAssistant = location.pathname === "/assistant";
   const assistantButtonActive = standaloneAssistant || assistantActive;
 
@@ -40,9 +38,6 @@ export function GlobalToolbar({
           onClick={onMenuToggle}
         />
       ) : null}
-      <div className={styles.location} aria-label="当前位置">
-        <Breadcrumb items={routeLocation.map((title) => ({ title }))} />
-      </div>
       <div className={styles.actions}>
         <Tooltip
           title={standaloneAssistant ? "聚焦 AI 输入框" : "打开当前页面 AI 助手"}

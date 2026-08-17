@@ -4,8 +4,6 @@ import type {
   ConversationScope,
   ChatMessage,
   ComplaintRiskConfig,
-  ComplaintRiskTrialInput,
-  ComplaintRiskTrialResult,
   ComplaintRiskVersion,
   CurrentUser,
   PlatformAssistantAuditLog,
@@ -31,11 +29,10 @@ import type {
   RiskStudent,
   RiskStudentDetail,
 } from "../pages/Quality/Conversation/riskData";
+import { getDemoApiBase } from "./mock/serviceWorkerUrl";
 
-const API_BASE = (
-  process.env.API_BASE_URL ??
-  (typeof window === "undefined" ? "" : window.location.origin)
-).replace(/\/$/, "");
+const API_BASE =
+  typeof window === "undefined" ? "" : getDemoApiBase(window.location.href);
 
 export class ApiError extends Error {
   constructor(
@@ -284,16 +281,6 @@ export const aiConfigApi = {
       {
         method: "PATCH",
         body: JSON.stringify(config),
-      },
-    );
-  },
-
-  trialComplaintRisk(config: ComplaintRiskConfig, input: ComplaintRiskTrialInput) {
-    return requestJson<ComplaintRiskTrialResult>(
-      "/api/v1/ai-config/complaint-risk/trial",
-      {
-        method: "POST",
-        body: JSON.stringify({ config, input }),
       },
     );
   },

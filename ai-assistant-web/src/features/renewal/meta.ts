@@ -8,6 +8,12 @@ import type {
   RenewalRuleScope,
   RenewalTriggerType,
 } from "../../api/contracts";
+import {
+  renewalGoalDimensionMeta,
+  renewalRuleLevelMeta,
+} from "./goalRules";
+
+export { renewalGoalDimensionMeta, renewalRuleLevelMeta } from "./goalRules";
 
 export const renewalCategoryMeta: Record<
   RenewalConditionCategory,
@@ -92,4 +98,12 @@ export const renewalCategoryOptions = Object.entries(renewalCategoryMeta).map(
 
 export const gradeOptions = ["9年级", "10年级", "11年级", "12年级"].map(
   (grade) => ({ value: grade, label: grade }),
+);
+
+export const renewalGoalDimensionOptions = Object.entries(
+  renewalGoalDimensionMeta,
+).map(([value, meta]) => ({ value, label: meta.label }));
+
+export const renewalRuleLevelOptions = Object.entries(renewalRuleLevelMeta).map(
+  ([value, meta]) => ({ value, label: meta.label }),
 );

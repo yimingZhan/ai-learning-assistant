@@ -30,8 +30,4 @@ export default defineConfig({
   request: {},
   mock: false,
   utoopack: {},
-  define: {
-    "process.env.API_BASE_URL": process.env.API_BASE_URL ?? "",
-    "process.env.DATA_MODE": process.env.DATA_MODE ?? "mock",
-  },
 });

@@ -18,6 +18,10 @@ import type {
   RenewalStudentDiagnosis,
   RenewalStudentSummary,
 } from "../contracts";
+import {
+  resolveRenewalRules,
+  validateRenewalRules,
+} from "../../features/renewal/goalRules";
 
 export type RenewalConditionSignal = {
   applicable?: boolean;
@@ -77,20 +81,36 @@ const currentProductNamesById: Record<string, string> = {
 
 type RuleTemplate = Omit<RenewalConditionRule, "id" | "grade">;
 
+function criterion(
+  id: string,
+  label: string,
+  metric: RenewalConditionRule["criteria"][number]["metric"],
+  value: string | number,
+  operator: RenewalConditionRule["criteria"][number]["operator"] = "eq",
+  unit?: string,
+) {
+  return { id, label, metric, operator, value, unit };
+}
+
 const conditionTemplates: Record<RenewalConditionCategory, RuleTemplate> = {
   language: {
     requirementCode: requirementCodes.language,
     scope: "baseline",
+    level: "grade",
     curricula: [],
     countries: [],
     schoolTiers: [],
+    schools: [],
     majors: [],
     applicationYears: [],
+    dimension: "language",
     category: "language",
     name: "阶段语言能力达标",
     type: "common",
     requirement: "完成阶段语言测评，并形成下一考试节点前的学习安排",
     target: "达到当前阶段目标分",
+    criteriaLogic: "all",
+    criteria: [criterion("language-plan", "阶段语言学习计划", "completion", "已完成")],
     deadline: "本学年结束前",
     evidenceSources: ["score", "registration", "course", "order"],
     enabled: true,
@@ -98,16 +118,21 @@ const conditionTemplates: Record<RenewalConditionCategory, RuleTemplate> = {
   subject: {
     requirementCode: requirementCodes.subject,
     scope: "baseline",
+    level: "grade",
     curricula: [],
     countries: [],
     schoolTiers: [],
+    schools: [],
     majors: [],
     applicationYears: [],
+    dimension: "subject",
     category: "subject",
     name: "核心学科持续覆盖",
     type: "common",
     requirement: "核心学科课程能够覆盖当前教学阶段及下一次大考",
     target: "现有课程覆盖至下一考试节点",
+    criteriaLogic: "all",
+    criteria: [criterion("subject-coverage", "下一考试节点课程覆盖", "completion", "已覆盖")],
     deadline: "下一次大考前",
     evidenceSources: ["score", "course", "order"],
     enabled: true,
@@ -115,16 +140,21 @@ const conditionTemplates: Record<RenewalConditionCategory, RuleTemplate> = {
   competition: {
     requirementCode: requirementCodes.competition,
     scope: "baseline",
+    level: "grade",
     curricula: [],
     countries: [],
     schoolTiers: [],
+    schools: [],
     majors: [],
     applicationYears: [],
+    dimension: "admissions",
     category: "competition",
     name: "专业相关竞赛准备",
     type: "conditional",
     requirement: "在竞赛方向明确时完成报名、前测和备考安排",
     target: "完成适用性确认后判断",
+    criteriaLogic: "all",
+    criteria: [criterion("competition-fit", "竞赛适用性", "completion", "已确认")],
     deadline: "竞赛报名截止前",
     evidenceSources: ["registration", "score", "course"],
     enabled: true,
@@ -132,16 +162,21 @@ const conditionTemplates: Record<RenewalConditionCategory, RuleTemplate> = {
   background: {
     requirementCode: requirementCodes.background,
     scope: "baseline",
+    level: "grade",
     curricula: [],
     countries: [],
     schoolTiers: [],
+    schools: [],
     majors: [],
     applicationYears: [],
+    dimension: "admissions",
     category: "background",
     name: "背景提升项目规划",
     type: "optional",
     requirement: "结合学生方向评估是否需要科研、夏校或活动项目",
     target: "作为可选提升项",
+    criteriaLogic: "all",
+    criteria: [criterion("background-plan", "背景提升方案", "completion", "已确认")],
     deadline: "项目申请窗口前",
     evidenceSources: ["planning", "profile"],
     enabled: true,
@@ -149,16 +184,21 @@ const conditionTemplates: Record<RenewalConditionCategory, RuleTemplate> = {
   assessment: {
     requirementCode: requirementCodes.assessment,
     scope: "baseline",
+    level: "grade",
     curricula: [],
     countries: [],
     schoolTiers: [],
+    schools: [],
     majors: [],
     applicationYears: [],
+    dimension: "admissions",
     category: "assessment",
     name: "笔试与面试准备",
     type: "conditional",
     requirement: "在考试要求明确时完成报名、模考和备考安排",
     target: "完成适用性确认后判断",
+    criteriaLogic: "all",
+    criteria: [criterion("assessment-plan", "考核准备方案", "completion", "已确认")],
     deadline: "正式考试前",
     evidenceSources: ["registration", "score", "course"],
     enabled: true,
@@ -166,19 +206,141 @@ const conditionTemplates: Record<RenewalConditionCategory, RuleTemplate> = {
   planning: {
     requirementCode: requirementCodes.planning,
     scope: "baseline",
+    level: "grade",
     curricula: [],
     countries: [],
     schoolTiers: [],
+    schools: [],
     majors: [],
     applicationYears: [],
+    dimension: "admissions",
     category: "planning",
     name: "阶段升学规划启动",
     type: "common",
     requirement: "完成当前年级应有的升学规划沟通和阶段任务",
     target: "阶段规划事项有负责人和完成时间",
+    criteriaLogic: "all",
+    criteria: [criterion("planning-owner", "规划事项负责人和节点", "completion", "已确认")],
     deadline: "本学年关键申请节点前",
     evidenceSources: ["planning", "order"],
     enabled: true,
+  },
+};
+
+const gradeGoalCopy: Record<
+  string,
+  Partial<Record<RenewalConditionCategory, Partial<RuleTemplate>>>
+> = {
+  "9年级": {
+    subject: {
+      name: "国际课程衔接与 IG 基础夯实",
+      requirement: "完成国际课程预习衔接；IG 选课尽量达到6门以上，并对B及以下薄弱学科制定提升方案",
+      target: "完成课程衔接；IG选课≥6门；冲刺G5的核心学科保持A–A*",
+      deadline: "9年级学年结束前",
+      criteria: [
+        criterion("ig-course-count", "IG选课门数", "count", 6, "gte", "门"),
+        criterion("ig-weak-subject", "B及以下薄弱学科提升方案", "completion", "已制定"),
+      ],
+    },
+    language: {
+      name: "转轨英语与阶段语言能力",
+      requirement: "完成语言能力诊断，避免英语影响国际课程理解，并形成寒暑假持续提升安排",
+      target: "达到当前年级阶段水平且单项无明显短板",
+      deadline: "9年级学年结束前",
+    },
+    planning: {
+      name: "专业大方向探索与长线规划",
+      requirement: "在理工、人文社科、商科等方向形成初步倾向，并建立学习习惯和四年时间线",
+      target: "形成方向探索记录与阶段行动计划",
+      deadline: "9年级下学期前",
+    },
+  },
+  "10年级": {
+    subject: {
+      name: "IG 大考、AL 选课与先修衔接",
+      requirement: "保障IG大考成绩，完成AL选课及目标专业前置学科校验，并安排重点学科先修",
+      target: "IG成绩满足申请方向；AL选课不遗漏目标专业必修学科",
+      deadline: "10年级末 AL 选课前",
+      criteria: [
+        criterion("ig-exam-plan", "IG大考提升方案", "completion", "已确认"),
+        criterion("al-course-check", "AL选课前置要求校验", "completion", "已通过"),
+      ],
+    },
+    language: {
+      name: "目标院校语言路径",
+      requirement: "根据目标学校和专业确认语言总分、单项要求与提交时间，形成循序渐进的提分计划",
+      target: "形成目标分、阶段分和考试节点",
+      deadline: "10年级学年结束前",
+    },
+    planning: {
+      name: "专业确定与课程匹配",
+      requirement: "完成专业探索，理解大学课程内容，并校验高中选课是否支持申请",
+      target: "明确专业方向和对应课程路径",
+      deadline: "AL选课确定前",
+    },
+    competition: {
+      name: "专业相关竞赛与多地布局",
+      requirement: "结合专业方向选择竞赛和背景活动，并评估多地联申路径",
+      target: "活动与申请方向相关，且有明确时间节点",
+      deadline: "10升11暑期前",
+    },
+  },
+  "11年级": {
+    subject: {
+      name: "AS、预估分与 A2 衔接",
+      requirement: "保障AS大考和校内成绩，形成预估分提升方案，并在11升12暑期完成A2先修",
+      target: "AS与校内成绩支持目标院校申请，A2学习计划已确认",
+      deadline: "11升12暑期结束前",
+      criteria: [
+        criterion("as-result", "AS及校内成绩目标", "completion", "已确认"),
+        criterion("a2-bridge", "A2暑期先修计划", "completion", "已安排"),
+      ],
+    },
+    language: {
+      name: "申请前语言能力进阶",
+      requirement: "理科冲刺G5达到总分6.5左右，文科达到7左右；非G5理科6、文科6.5，并持续准备目标院校条件",
+      target: "达到申请方向的阶段语言目标",
+      deadline: "12年级申请季前",
+    },
+    planning: {
+      name: "学校、专业与达成路径确认",
+      requirement: "确认目标学校、专业、选课要求和申请材料路径，背景提升必须与专业相关",
+      target: "形成冲刺、匹配、保底的目标组合与任务表",
+      deadline: "11升12暑期结束前",
+    },
+    background: {
+      name: "专业相关背景提升",
+      requirement: "仅安排与目标专业直接相关的竞赛、科研或活动，避免无效堆叠",
+      target: "每项活动均能说明与专业申请的关系",
+      deadline: "申请材料准备前",
+    },
+  },
+  "12年级": {
+    subject: {
+      name: "A2 达成 offer condition",
+      requirement: "以offer学科条件为目标统筹A2学习与AS补考，出现风险时及时增加课频和刷题安排",
+      target: "A2及补考安排覆盖最终录取条件",
+      deadline: "最终大考前",
+      criteria: [criterion("offer-subject-condition", "Offer学科条件", "completion", "可达成")],
+    },
+    language: {
+      name: "语言 condition 与最晚节点",
+      requirement: "根据最终offer确认总分、单项和提交DDL，避免将语言备考拖至暑期",
+      target: "语言成绩在offer规定时间前达标",
+      deadline: "最晚6月确认学校前",
+    },
+    planning: {
+      name: "申请递交、选校与 offer 后续",
+      requirement: "完成各地区申请系统、选校组合、材料递交，并规划换无条件录取、签证、宿舍及补录",
+      target: "申请任务、负责人和截止日期全部明确",
+      deadline: "各申请系统截止前",
+    },
+    assessment: {
+      name: "文书与院校考核准备",
+      requirement: "文书体现学术性、主动性和潜力；按院校要求完成笔试、面试诊断及模考",
+      target: "文书定稿且适用考核至少完成一次全真模拟",
+      deadline: "材料提交或院校考核前",
+    },
   },
 };
 
@@ -191,6 +353,7 @@ export function createInitialRenewalRules(): RenewalConditionRule[] {
     (Object.keys(conditionTemplates) as RenewalConditionCategory[]).map(
       (category) => ({
         ...conditionTemplates[category],
+        ...gradeGoalCopy[grade]?.[category],
         id: ruleId(grade, category),
         grade,
       }),
@@ -202,6 +365,7 @@ export function createInitialRenewalRules(): RenewalConditionRule[] {
       ...conditionTemplates.language,
       id: "goal-12-uk-top30-language",
       scope: "goal",
+      level: "destination",
       grade: "12年级",
       countries: ["英国"],
       schoolTiers: ["TOP30"],
@@ -210,11 +374,16 @@ export function createInitialRenewalRules(): RenewalConditionRule[] {
       requirement: "确认目标院校语言总分、单项要求与最晚提交时间",
       target: "雅思总分7.0且单项满足院校要求",
       deadline: "申请材料提交前",
+      criteria: [
+        criterion("ielts-overall", "雅思总分", "score", 7, "gte", "分"),
+        criterion("ielts-components", "雅思单项", "text", "满足院校要求"),
+      ],
     },
     {
       ...conditionTemplates.subject,
       id: "goal-12-uk-top30-subject",
       scope: "goal",
+      level: "destination",
       grade: "12年级",
       countries: ["英国"],
       schoolTiers: ["TOP30"],
@@ -223,11 +392,13 @@ export function createInitialRenewalRules(): RenewalConditionRule[] {
       requirement: "核心学科成绩与课程安排覆盖目标院校录取要求",
       target: "核心学科达到A或目标院校等效要求",
       deadline: "下一次大考前",
+      criteria: [criterion("core-subject-grade", "核心学科", "grade", "A", "gte")],
     },
     {
       ...conditionTemplates.competition,
       id: "goal-11-uk-physics-competition",
       scope: "goal",
+      level: "major",
       grade: "11年级",
       countries: ["英国"],
       schoolTiers: ["TOP10", "TOP30"],
@@ -242,6 +413,7 @@ export function createInitialRenewalRules(): RenewalConditionRule[] {
       ...conditionTemplates.assessment,
       id: "goal-12-uk-top30-assessment",
       scope: "goal",
+      level: "destination",
       grade: "12年级",
       countries: ["英国"],
       schoolTiers: ["TOP30"],
@@ -250,6 +422,104 @@ export function createInitialRenewalRules(): RenewalConditionRule[] {
       requirement: "根据目标院校要求完成笔试与面试诊断和训练",
       target: "完成至少一次全真模考与复盘",
       deadline: "院校考核前",
+      criteria: [criterion("mock-assessment", "全真模考与复盘", "count", 1, "gte", "次")],
+    },
+    ...(["11年级", "12年级"] as const).flatMap((grade) => [
+      {
+        ...conditionTemplates.language,
+        id: `goal-${grade}-oxbridge-language`,
+        scope: "goal" as const,
+        level: "school" as const,
+        grade,
+        countries: ["英国"],
+        schools: ["牛津大学", "剑桥大学"],
+        name: "牛剑语言要求",
+        requirement: "满足牛津或剑桥的语言总分与单项要求",
+        target: "雅思总分7.5，单项不低于7.0",
+        deadline: grade === "12年级" ? "Offer规定提交日前" : "12年级申请季前",
+        criteria: [
+          criterion("ielts-overall", "雅思总分", "score", 7.5, "gte", "分"),
+          criterion("ielts-components", "雅思单项", "score", 7, "gte", "分"),
+        ],
+      },
+      {
+        ...conditionTemplates.language,
+        id: `goal-${grade}-lse-language`,
+        scope: "goal" as const,
+        level: "school" as const,
+        grade,
+        countries: ["英国"],
+        schools: ["伦敦政治经济学院"],
+        name: "LSE语言要求",
+        requirement: "满足LSE语言总分与单项要求",
+        target: "雅思总分7.0，单项不低于7.0",
+        deadline: grade === "12年级" ? "Offer规定提交日前" : "12年级申请季前",
+        criteria: [
+          criterion("ielts-overall", "雅思总分", "score", 7, "gte", "分"),
+          criterion("ielts-components", "雅思单项", "score", 7, "gte", "分"),
+        ],
+      },
+      {
+        ...conditionTemplates.language,
+        id: `goal-${grade}-ucl-ic-language`,
+        scope: "goal" as const,
+        level: "school" as const,
+        grade,
+        countries: ["英国"],
+        schools: ["伦敦大学学院", "帝国理工学院"],
+        name: "UCL / IC语言最低要求",
+        requirement: "先满足学校最低语言门槛，再按具体专业配置更高要求",
+        target: "最低参考：雅思总分6.5，单项不低于6.0",
+        deadline: grade === "12年级" ? "Offer规定提交日前" : "12年级申请季前",
+        criteria: [
+          criterion("ielts-overall", "雅思总分", "score", 6.5, "gte", "分"),
+          criterion("ielts-components", "雅思单项", "score", 6, "gte", "分"),
+        ],
+      },
+    ]),
+    {
+      ...conditionTemplates.subject,
+      id: "goal-10-oxbridge-math-subject",
+      scope: "goal",
+      level: "major",
+      grade: "10年级",
+      countries: ["英国"],
+      schools: ["牛津大学", "剑桥大学"],
+      majors: ["数学"],
+      name: "牛剑数学选课前置要求",
+      requirement: "申请数学方向时必须完成数学相关课程选择校验",
+      target: "数学课程已选择并覆盖申请要求",
+      deadline: "AL选课确定前",
+      criteria: [criterion("math-course", "数学课程", "completion", "已选择")],
+    },
+    {
+      ...conditionTemplates.subject,
+      id: "goal-10-canada-engineering-subject",
+      scope: "goal",
+      level: "major",
+      grade: "10年级",
+      countries: ["加拿大"],
+      majors: ["工程"],
+      name: "加拿大工程选课前置要求",
+      requirement: "申请加拿大工程方向时校验化学课程要求",
+      target: "化学课程已选择",
+      deadline: "高中课程确定前",
+      criteria: [criterion("chemistry-course", "化学课程", "completion", "已选择")],
+    },
+    {
+      ...conditionTemplates.subject,
+      id: "goal-10-edinburgh-law-subject",
+      scope: "goal",
+      level: "major",
+      grade: "10年级",
+      countries: ["英国"],
+      schools: ["爱丁堡大学"],
+      majors: ["法律"],
+      name: "爱丁堡法律选课前置要求",
+      requirement: "申请爱丁堡法律方向时校验英语文学课程要求",
+      target: "英语文学课程已选择",
+      deadline: "高中课程确定前",
+      criteria: [criterion("english-literature-course", "英语文学课程", "completion", "已选择")],
     },
   ];
 
@@ -456,6 +726,7 @@ export const renewalStudentRecords: RenewalStudentRecord[] = [
       status: "confirmed",
       countries: ["英国"],
       schoolTiers: ["TOP30"],
+      schools: ["帝国理工学院"],
       majors: ["数学"],
       applicationYear: 2027,
       updatedAt: "2026-08-08",
@@ -514,7 +785,7 @@ export const renewalStudentRecords: RenewalStudentRecord[] = [
     customerNumber: "VA100246",
     grade: "10年级",
     curriculum: "IGCSE",
-    targetProfile: { status: "missing", countries: [], schoolTiers: [], majors: [] },
+    targetProfile: { status: "missing", countries: [], schoolTiers: [], schools: [], majors: [] },
     owner: "李辰（A1058）",
     currentProducts: ["IGCSE 英语强化"],
     remainingHours: 18,
@@ -557,6 +828,7 @@ export const renewalStudentRecords: RenewalStudentRecord[] = [
       status: "confirmed",
       countries: ["英国"],
       schoolTiers: ["TOP10"],
+      schools: ["剑桥大学"],
       majors: ["物理"],
       applicationYear: 2028,
       updatedAt: "2026-08-09",
@@ -621,7 +893,7 @@ export const renewalStudentRecords: RenewalStudentRecord[] = [
     customerNumber: "VA100355",
     grade: "9年级",
     curriculum: "IGCSE",
-    targetProfile: { status: "missing", countries: [], schoolTiers: [], majors: [] },
+    targetProfile: { status: "missing", countries: [], schoolTiers: [], schools: [], majors: [] },
     owner: "张敏（A1116）",
     currentProducts: ["IGCSE 数学衔接"],
     remainingHours: 12,
@@ -700,39 +972,13 @@ function matchesDimension(required: string[], actual: string[]) {
   return required.length === 0 || required.some((item) => actual.includes(item));
 }
 
-function matchesRule(rule: RenewalConditionRule, student: RenewalStudentRecord) {
-  if (!rule.enabled || rule.grade !== student.grade) return false;
-  if (!matchesDimension(rule.curricula, [student.curriculum])) return false;
-  if (rule.scope === "baseline") return true;
-  if (student.targetProfile.status !== "confirmed") return false;
-  const applicationYear = student.applicationYear ?? student.targetProfile.applicationYear;
-  return (
-    matchesDimension(rule.countries, student.targetProfile.countries) &&
-    matchesDimension(rule.schoolTiers, student.targetProfile.schoolTiers) &&
-    matchesDimension(rule.majors, student.targetProfile.majors) &&
-    (rule.applicationYears.length === 0 ||
-      (applicationYear !== undefined && rule.applicationYears.includes(applicationYear)))
-  );
-}
-
-function applicableRules(student: RenewalStudentRecord, config: RenewalConfig) {
-  const selected = new Map<string, RenewalConditionRule>();
-  config.conditionRules
-    .filter((rule) => matchesRule(rule, student) && rule.scope === "baseline")
-    .forEach((rule) => selected.set(rule.requirementCode, rule));
-  config.conditionRules
-    .filter((rule) => matchesRule(rule, student) && rule.scope === "goal")
-    .forEach((rule) => selected.set(rule.requirementCode, rule));
-  return Array.from(selected.values());
-}
-
 function deriveStatus(
   rule: RenewalConditionRule,
   value: RenewalConditionSignal | undefined,
 ): RenewalConditionStatus {
   if (!value) return "data_pending";
   if (
-    rule.scope === "baseline" &&
+    rule.level === "grade" &&
     rule.type !== "common" &&
     value.applicable !== true
   ) {
@@ -761,7 +1007,7 @@ function conditionPriority(
 ): RenewalOpportunityPriority | undefined {
   if (status === "in_progress_at_risk") return value?.urgent ? "P0" : "P1";
   if (status !== "missing") return undefined;
-  if (rule.scope === "goal") return rule.type === "optional" ? "P1" : "P0";
+  if (rule.level !== "grade") return rule.type === "optional" ? "P1" : "P0";
   if (rule.type === "common") return "P0";
   if (rule.type === "conditional" && value?.applicable) return "P1";
   return undefined;
@@ -772,6 +1018,7 @@ function goalReference(student: RenewalStudentRecord) {
   return [
     student.targetProfile.countries.join("/"),
     student.targetProfile.schoolTiers.join("/"),
+    student.targetProfile.schools.join("/"),
     student.targetProfile.majors.join("/"),
   ]
     .filter(Boolean)
@@ -780,6 +1027,7 @@ function goalReference(student: RenewalStudentRecord) {
 
 function matchProducts(
   rule: RenewalConditionRule,
+  sourceRules: RenewalConditionRule[],
   priority: RenewalOpportunityPriority | undefined,
   student: RenewalStudentRecord,
   signalValue: RenewalConditionSignal | undefined,
@@ -792,8 +1040,9 @@ function matchProducts(
   const filteredProductReasons: string[] = [];
   const targetDate = signalValue?.deadlineDate ?? student.nextExamDate;
 
+  const sourceRuleIds = new Set(sourceRules.map((source) => source.id));
   for (const mapping of config.productMappings.filter((item) =>
-    item.conditionRuleIds.includes(rule.id),
+    item.conditionRuleIds.some((ruleId) => sourceRuleIds.has(ruleId)),
   )) {
     let filteredReason: string | undefined;
     const prerequisite = student.prerequisiteResults[mapping.productId];
@@ -869,22 +1118,27 @@ export function diagnoseRenewalStudent(
   student: RenewalStudentRecord,
   config: RenewalConfig,
 ): RenewalStudentDiagnosis {
-  const conditions = applicableRules(student, config).map((rule) => {
+  const conditions = resolveRenewalRules(config.conditionRules, student).map((resolved) => {
+    const { rule, sourceRules, sourceChain } = resolved;
     const value = student.conditionSignals[rule.requirementCode];
     const status = deriveStatus(rule, value);
     const priority = conditionPriority(rule, status, value);
-    const matched = matchProducts(rule, priority, student, value, config);
+    const matched = matchProducts(rule, sourceRules, priority, student, value, config);
     return {
       conditionId: `${student.id}-${rule.id}`,
       ruleId: rule.id,
       requirementCode: rule.requirementCode,
       requirementSource: rule.scope,
-      goalReference: rule.scope === "goal" ? goalReference(student) : undefined,
+      sourceLevel: rule.level,
+      sourceChain,
+      goalReference: rule.level !== "grade" ? goalReference(student) : undefined,
+      dimension: rule.dimension,
       category: rule.category,
       conditionName: rule.name,
       conditionType: rule.type,
       requirement: rule.requirement,
       target: rule.target,
+      criteria: rule.criteria,
       deadline: rule.deadline,
       status,
       coverageQuality: coverageQuality(status),
@@ -918,6 +1172,10 @@ export function diagnoseRenewalStudent(
     missingFields,
     topRecommendations: uniqueRecommendations(actionable),
   };
+}
+
+export function renewalConfigurationErrors(config: RenewalConfig) {
+  return validateRenewalRules(config.conditionRules);
 }
 
 export function getRenewalStudentDiagnosis(

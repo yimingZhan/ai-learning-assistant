@@ -1,0 +1,102 @@
+[
+  {
+    "caseId": "WCS-001",
+    "chatType": "single",
+    "expectedRiskLevel": "high",
+    "expectedThemes": ["服务响应延迟", "学习效果质疑", "退费意向", "投诉升级"],
+    "expectedEvidenceIds": ["msg-wcs001-002", "msg-wcs001-004", "msg-wcs001-006"],
+    "expectedSummary": "家长因学习反馈持续延迟和成绩未见提升，明确提出终止课程及退费，并限定当天18点前答复，否则将向总部和平台投诉。",
+    "suggestedAction": "立即由负责人接管，在承诺时限内同步学习数据、剩余课时、退费口径和解决方案，并记录回访结果。",
+    "evaluationNote": "需要同时识别退费意向和外部投诉升级，不能只总结为一般催反馈。"
+  },
+  {
+    "caseId": "WCS-002",
+    "chatType": "single",
+    "expectedRiskLevel": "low",
+    "expectedThemes": ["排课稳定性", "转班倾向"],
+    "expectedEvidenceIds": ["msg-wcs002-001", "msg-wcs002-004", "msg-wcs002-005", "msg-wcs002-007"],
+    "expectedSummary": "家长因当月第二次临时调课表达不满并提及转班；学管师随后锁定未来四周原时段，家长接受方案，当前风险已明显缓解。",
+    "suggestedAction": "按已确认排课执行，若再次变动需提前沟通；一周后回访稳定性。",
+    "evaluationNote": "必须结合最后的解决方案和家长确认降级，避免仅凭“转班”判为高风险。"
+  },
+  {
+    "caseId": "WCS-003",
+    "chatType": "single",
+    "expectedRiskLevel": "medium",
+    "expectedThemes": ["学习退步", "缺勤倾向", "情绪压力", "睡眠异常"],
+    "expectedEvidenceIds": ["msg-wcs003-002", "msg-wcs003-004", "msg-wcs003-006"],
+    "expectedSummary": "学生因连续测验退步和家庭批评出现抗拒到课、明显烦躁、社交回避及睡眠不足，并要求不要在群内公开。",
+    "suggestedAction": "保护学生隐私，次日完成线下关怀和学习任务减量；由合适人员与家长沟通，持续观察出勤、睡眠和情绪变化。",
+    "evaluationNote": "没有自伤或人身威胁证据，不应擅自升级为极端安全事件；但不能忽略情绪与缺勤组合风险。"
+  },
+  {
+    "caseId": "WCS-004",
+    "chatType": "single",
+    "expectedRiskLevel": "none",
+    "expectedThemes": [],
+    "expectedEvidenceIds": [],
+    "expectedSummary": "家长正常索取学习报告，员工在承诺时限内发送，家长确认收到且认可提升，无持续风险。",
+    "suggestedAction": "无需预警，按常规学习计划跟进。",
+    "evaluationNote": "用于检查正常沟通是否被误报。"
+  },
+  {
+    "caseId": "WCS-005",
+    "chatType": "single",
+    "expectedRiskLevel": "none",
+    "expectedThemes": [],
+    "expectedEvidenceIds": [],
+    "expectedSummary": "家长咨询续费优惠和发票，并明确说明合同中的“退费”只是条款、并非提出退费，沟通已解释清楚。",
+    "suggestedAction": "无需预警，按续费咨询正常跟进。",
+    "evaluationNote": "关键反例：不能命中关键词“退费”就直接预警，需识别否定语义。"
+  },
+  {
+    "caseId": "WCG-001",
+    "chatType": "group",
+    "expectedRiskLevel": "high",
+    "expectedThemes": ["服务响应延迟", "学习效果质疑", "退费意向", "外部投诉"],
+    "expectedEvidenceIds": ["msg-wcg001-001", "msg-wcg001-003", "msg-wcg001-005", "msg-wcg001-006"],
+    "expectedSummary": "家长指出阶段测评反馈长期拖延、三次成绩无改善且一对一跟踪未兑现，明确要求当天说明退费金额，否则联系校区负责人并向消费者平台反映；主管已接管但结果尚未闭环。",
+    "suggestedAction": "按17点承诺同步测评分析、剩余课时和可执行方案，由主管完成闭环回访。",
+    "evaluationNote": "主管接管不等于问题已经解决，仍应保持高风险直至承诺交付完成。"
+  },
+  {
+    "caseId": "WCG-002",
+    "chatType": "group",
+    "expectedRiskLevel": "high",
+    "expectedThemes": ["同伴欺凌", "人身安全威胁", "到课回避"],
+    "expectedEvidenceIds": ["msg-wcg002-001", "msg-wcg002-003", "msg-wcg002-004", "msg-wcg002-006", "msg-wcg002-007"],
+    "expectedSummary": "学生因持续被叫外号、练习册被丢弃及放学后威胁而害怕进入教室，存在即时人身安全风险；校方已安排陪同和家长接回，但事件调查尚未完成。",
+    "suggestedAction": "维持现场保护和人员隔离，立即按安全事件流程升级，完成证据核实、双方家长沟通和后续防复发措施。",
+    "evaluationNote": "即使已临时安置，威胁事实仍需高优先级预警。"
+  },
+  {
+    "caseId": "WCG-003",
+    "chatType": "group",
+    "expectedRiskLevel": "medium",
+    "expectedThemes": ["作业拖欠", "晚自习缺勤", "家庭支持波动"],
+    "expectedEvidenceIds": ["msg-wcg003-001", "msg-wcg003-002", "msg-wcg003-003", "msg-wcg003-004"],
+    "expectedSummary": "学生一周内三次作业缺交两次、两次晚自习未到，原因涉及家庭照看变化和学习困难；学管师已制定补交与每日打卡计划，学生和家长均接受。",
+    "suggestedAction": "执行一周打卡和补交计划，周末复核出勤与作业完成度；若再次连续缺勤则升级。",
+    "evaluationNote": "属于需要跟踪的中风险，但已有明确行动与合作意愿，不宜判高。"
+  },
+  {
+    "caseId": "WCG-004",
+    "chatType": "group",
+    "expectedRiskLevel": "none",
+    "expectedThemes": [],
+    "expectedEvidenceIds": [],
+    "expectedSummary": "学生出勤和作业均完成，测验提升9分，学生、家长与老师沟通积极，无预警事项。",
+    "suggestedAction": "无需预警，保持现有学习节奏。",
+    "evaluationNote": "用于检查正常群聊是否被误报。"
+  },
+  {
+    "caseId": "WCG-005",
+    "chatType": "group",
+    "expectedRiskLevel": "medium",
+    "expectedThemes": ["成绩持续下滑", "课程效果质疑", "方案缺乏针对性", "换师倾向"],
+    "expectedEvidenceIds": ["msg-wcg005-001", "msg-wcg005-002", "msg-wcg005-004", "msg-wcg005-005", "msg-wcg005-006"],
+    "expectedSummary": "学生四次测验从84分降至67分，排名持续下降；家长认为上月反馈未得到针对性调整，质疑课程价值并表示若新方案仍空泛将申请换老师。家长已撤回冲动的退费表述，当前应聚焦效果与换师风险。",
+    "suggestedAction": "在次日中午前提交基于试卷错误原因的两周调整方案，由教研组长参与，并约定量化复盘节点。",
+    "evaluationNote": "撤回的退费表述只能作为弱证据，且后文明确先等方案；不应据此单独判为高风险退费。"
+  }
+]

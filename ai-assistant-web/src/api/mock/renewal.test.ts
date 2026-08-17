@@ -5,6 +5,7 @@ import {
   listRenewalOpportunities,
   renewalStudentRecords,
   runRenewalDiagnosis,
+  renewalConfigurationErrors,
 } from "./renewal";
 
 describe("renewal diagnosis engine", () => {
@@ -18,10 +19,69 @@ describe("renewal diagnosis engine", () => {
 
     expect(language).toHaveLength(1);
     expect(language[0]).toMatchObject({
-      ruleId: "goal-12-uk-top30-language",
+      ruleId: "goal-12年级-ucl-ic-language",
       requirementSource: "goal",
-      goalReference: "英国 · TOP30 · 数学",
+      sourceLevel: "school",
+      goalReference: "英国 · TOP30 · 帝国理工学院 · 数学",
     });
+    expect(language[0].sourceChain.map((source) => source.level)).toEqual([
+      "grade",
+      "destination",
+      "school",
+    ]);
+    expect(language[0].criteria.map((item) => item.label)).toEqual([
+      "雅思总分",
+      "雅思单项",
+    ]);
+  });
+
+  it("stacks different goal items while only overriding the same stable code", () => {
+    const diagnosis = diagnoseRenewalStudent(renewalStudentRecords[2], config);
+
+    expect(diagnosis.conditions.filter((item) => item.dimension === "admissions").length)
+      .toBeGreaterThanOrEqual(4);
+    expect(diagnosis.conditions.filter((item) => item.requirementCode === "language-stage"))
+      .toHaveLength(1);
+    expect(diagnosis.conditions.find((item) => item.requirementCode === "language-stage"))
+      .toMatchObject({ sourceLevel: "school", ruleId: "goal-11年级-oxbridge-language" });
+  });
+
+  it("rejects equally specific overlapping active rules", () => {
+    const invalid = structuredClone(config);
+    const source = invalid.conditionRules.find((rule) => rule.id === "goal-12-uk-top30-language");
+    if (!source) throw new Error("source rule missing");
+    invalid.conditionRules.push({ ...source, id: "goal-conflict", name: "重复英国语言要求" });
+
+    expect(renewalConfigurationErrors(invalid)).toContain(
+      "“英国TOP30语言成绩达标”与“重复英国语言要求”在同层级适用范围重叠",
+    );
+  });
+
+  it("inherits product mappings from the source chain for a newly added override", () => {
+    const trialConfig = structuredClone(config);
+    const baseline = trialConfig.conditionRules.find((rule) => rule.id === "9-language");
+    if (!baseline) throw new Error("baseline rule missing");
+    trialConfig.conditionRules.push({
+      ...baseline,
+      id: "goal-9-uk-language-new",
+      scope: "goal",
+      level: "destination",
+      countries: ["英国"],
+      name: "英国方向9年级语言目标",
+    });
+    const student = structuredClone(renewalStudentRecords[3]);
+    student.targetProfile = {
+      status: "confirmed",
+      countries: ["英国"],
+      schoolTiers: [],
+      schools: [],
+      majors: [],
+    };
+
+    const language = diagnoseRenewalStudent(student, trialConfig).conditions
+      .find((item) => item.requirementCode === "language-stage");
+    expect(language).toMatchObject({ ruleId: "goal-9-uk-language-new" });
+    expect(language?.recommendations.map((item) => item.productId)).toContain("product-ielts-stage");
   });
 
   it("falls back to baseline rules when target is missing and does not default to planning products", () => {

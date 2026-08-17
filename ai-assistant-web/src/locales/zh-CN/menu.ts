@@ -9,6 +9,6 @@ export default {
   "menu.aiConfig": "AI 配置",
   "menu.aiConfig.platformAssistant": "平台助手配置",
   "menu.aiConfig.complaintRisk": "客诉预警配置",
-  "menu.aiConfig.renewal": "续费规则配置",
+  "menu.aiConfig.renewal": "学生GPA管理",
   "menu.workReminders": "工作提醒",
 };

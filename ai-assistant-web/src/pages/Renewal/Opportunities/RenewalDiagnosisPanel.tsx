@@ -24,7 +24,7 @@ import {
   renewalCategoryMeta,
   renewalEvidenceSourceMeta,
   renewalRecommendationTypeMeta,
-  renewalRuleScopeMeta,
+  renewalRuleLevelMeta,
   renewalStatusMeta,
 } from "../../../features/renewal/meta";
 import { useRenewalWorkbenchStyles } from "./index.styles";
@@ -36,7 +36,12 @@ function formatAmount(amount?: number) {
 function targetText(diagnosis: RenewalStudentDiagnosis) {
   const target = diagnosis.student.targetProfile;
   if (target.status === "missing") return "升学目标待补充";
-  return [...target.countries, ...target.schoolTiers, ...target.majors].join(" · ");
+  return [
+    ...target.countries,
+    ...target.schoolTiers,
+    ...target.schools,
+    ...target.majors,
+  ].join(" · ");
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -72,8 +77,8 @@ function ConditionItem({
           <Space size={[4, 4]} wrap>
             <Typography.Text strong>{condition.conditionName}</Typography.Text>
             <Tag color={status.color}>{status.label}</Tag>
-            <Tag color={renewalRuleScopeMeta[condition.requirementSource].color}>
-              {renewalRuleScopeMeta[condition.requirementSource].label}
+            <Tag color={renewalRuleLevelMeta[condition.sourceLevel].color}>
+              {renewalRuleLevelMeta[condition.sourceLevel].label}
             </Tag>
           </Space>
           <Typography.Text type="secondary" style={{ display: "block", marginTop: 4 }}>

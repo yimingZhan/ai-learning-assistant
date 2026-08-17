@@ -6,7 +6,7 @@ const routeLocations: Record<string, string[]> = {
   "/renewal/prediction": ["AI 续费", "续费机会"],
   "/ai-config/complaint-risk": ["AI 配置", "客诉预警配置"],
   "/ai-config/platform-assistant": ["AI 配置", "平台助手配置"],
-  "/ai-config/renewal": ["AI 配置", "续费规则配置"],
+  "/ai-config/renewal": ["AI 配置", "学生GPA管理"],
   "/work-reminders": ["工作提醒"],
 };
 

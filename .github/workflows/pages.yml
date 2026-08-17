@@ -45,9 +45,6 @@ jobs:
 
       - name: Build static demo
         working-directory: ai-assistant-web
-        env:
-          DATA_MODE: mock
-          API_BASE_URL: /ai-learning-assistant
         run: |
           pnpm build
           touch dist/.nojekyll
