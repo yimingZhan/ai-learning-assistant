@@ -1,26 +1,20 @@
 import {
-  FilterOutlined,
-  SortAscendingOutlined,
-} from "@ant-design/icons";
-import {
-  ProForm,
   ProFormDateRangePicker,
   ProFormSelect,
+  ProFormText,
   ProFormTreeSelect,
+  QueryFilter,
 } from "@ant-design/pro-components";
 import {
-  Badge,
-  Button,
   Card,
-  Dropdown,
   Empty,
   Flex,
   Form,
-  Input,
   List,
-  Popover,
+  Pagination,
   Space,
   Tag,
+  Tabs,
   TreeSelect,
   Typography,
 } from "antd";
@@ -31,20 +25,20 @@ import {
   filterRiskStudents,
   relatedPersonOptions,
   riskLevelMeta,
-  riskSourceMeta,
+  riskTypeOptions,
   sortRiskStudents,
   type RiskStudent,
   type RiskStudentFilters,
-  type RiskStudentSort,
 } from "./riskData";
 
-export type AdvancedFilters = Omit<RiskStudentFilters, "student">;
+export type AdvancedFilters = RiskStudentFilters;
+export type StudentProgressFilter = "all" | "pending" | "closed";
+export const STUDENT_PAGE_SIZE = 5;
 
 export function formatDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-
   return `${year}-${month}-${day}`;
 }
 
@@ -55,7 +49,6 @@ export function getEventTimeForPeriod(
   const endDate = new Date(now);
   const startDate = new Date(now);
   startDate.setDate(endDate.getDate() - period + 1);
-
   return [formatDate(startDate), formatDate(endDate)];
 }
 
@@ -68,9 +61,7 @@ export function getLinkedRiskStudentFilters(
   now = new Date(),
 ): AdvancedFilters {
   const requestedLevel = searchParams.get("riskLevel");
-  const riskLevel = ["high", "medium", "low"].includes(
-    requestedLevel ?? "",
-  )
+  const riskLevel = ["high", "medium", "low"].includes(requestedLevel ?? "")
     ? (requestedLevel as RiskStudentFilters["riskLevel"])
     : undefined;
   const requestedOwner = searchParams.get("owner")?.trim();
@@ -83,75 +74,204 @@ export function getLinkedRiskStudentFilters(
   };
 }
 
-function countActiveFilters(filters: AdvancedFilters) {
-  return [
-    filters.riskLevel,
-    filters.riskSources?.length ? filters.riskSources : undefined,
-    filters.eventTime,
-    filters.employeeDepartments?.length
-      ? filters.employeeDepartments
-      : undefined,
-    filters.relatedPerson,
-  ].filter(Boolean).length;
-}
-
-function toFilterFormValues(filters: AdvancedFilters): AdvancedFilters {
-  return {
-    riskLevel: filters.riskLevel,
-    riskSources: filters.riskSources ?? [],
-    eventTime: filters.eventTime,
-    employeeDepartments: filters.employeeDepartments ?? [],
-    relatedPerson: filters.relatedPerson,
-  };
-}
-
 export function useRiskStudentSelection(
   records: RiskStudent[],
   selectedStudentId: string | null,
   onSelect: (studentId: string | null) => void,
   initialFilters?: AdvancedFilters,
 ) {
-  const [keyword, setKeyword] = useState("");
-  const [sort, setSort] = useState<RiskStudentSort>("risk");
-  const [filters, setFilters] = useState<AdvancedFilters>(() => ({
+  const [filters, setFiltersState] = useState<AdvancedFilters>(() => ({
     eventTime: getDefaultEventTime(),
     ...initialFilters,
   }));
+  const [progress, setProgressState] =
+    useState<StudentProgressFilter>("pending");
+  const [currentPage, setCurrentPage] = useState(1);
 
+  const filteredStudents = useMemo(
+    () => filterRiskStudents(records, filters),
+    [filters, records],
+  );
+  const progressCounts = useMemo(
+    () => ({
+      all: filteredStudents.length,
+      pending: filteredStudents.filter(
+        (student) => student.pendingRiskCount > 0,
+      ).length,
+      closed: filteredStudents.filter(
+        (student) => student.pendingRiskCount === 0,
+      ).length,
+    }),
+    [filteredStudents],
+  );
   const visibleStudents = useMemo(
     () =>
       sortRiskStudents(
-        filterRiskStudents(records, { ...filters, student: keyword }),
-        sort,
+        filteredStudents.filter((student) => {
+          if (progress === "pending") return student.pendingRiskCount > 0;
+          if (progress === "closed") return student.pendingRiskCount === 0;
+          return true;
+        }),
+        "risk",
       ),
-    [filters, keyword, records, sort],
+    [filteredStudents, progress],
   );
+  const maxPage = Math.max(
+    1,
+    Math.ceil(visibleStudents.length / STUDENT_PAGE_SIZE),
+  );
+  const normalizedPage = Math.min(currentPage, maxPage);
+  const pageStudents = useMemo(() => {
+    const start = (normalizedPage - 1) * STUDENT_PAGE_SIZE;
+    return visibleStudents.slice(start, start + STUDENT_PAGE_SIZE);
+  }, [normalizedPage, visibleStudents]);
+
+  useEffect(() => {
+    if (currentPage !== normalizedPage) setCurrentPage(normalizedPage);
+  }, [currentPage, normalizedPage]);
 
   useEffect(() => {
     if (
       selectedStudentId &&
-      visibleStudents.some((student) => student.id === selectedStudentId)
+      pageStudents.some((student) => student.id === selectedStudentId)
     ) {
       return;
     }
-    onSelect(visibleStudents[0]?.id ?? null);
-  }, [onSelect, selectedStudentId, visibleStudents]);
+    onSelect(pageStudents[0]?.id ?? null);
+  }, [onSelect, pageStudents, selectedStudentId]);
+
+  const applyFilters = (nextFilters: AdvancedFilters) => {
+    setFiltersState(nextFilters);
+    setCurrentPage(1);
+  };
+
+  const applyProgress = (nextProgress: StudentProgressFilter) => {
+    setProgressState(nextProgress);
+    setCurrentPage(1);
+  };
 
   return {
-    keyword,
-    setKeyword,
-    sort,
-    setSort,
     filters,
-    setFilters,
+    applyFilters,
+    progress,
+    progressCounts,
+    applyProgress,
     visibleStudents,
-    activeFilterCount: countActiveFilters(filters),
+    pageStudents,
+    currentPage: normalizedPage,
+    setCurrentPage,
+    pageSize: STUDENT_PAGE_SIZE,
   };
 }
 
 export type RiskStudentSelection = ReturnType<
   typeof useRiskStudentSelection
 >;
+
+type StudentQueryBarProps = {
+  selection: RiskStudentSelection;
+};
+
+export function StudentQueryBar({ selection }: StudentQueryBarProps) {
+  const { styles } = useStudentSelectorStyles();
+  const [form] = Form.useForm<AdvancedFilters>();
+
+  useEffect(() => {
+    form.setFieldsValue({
+      student: selection.filters.student,
+      riskLevel: selection.filters.riskLevel,
+      riskTypes: selection.filters.riskTypes ?? [],
+      eventTime: selection.filters.eventTime,
+      employeeDepartments: selection.filters.employeeDepartments ?? [],
+      relatedPerson: selection.filters.relatedPerson,
+    });
+  }, [form, selection.filters]);
+
+  return (
+    <section className={styles.queryBar} aria-label="客诉风险学生筛选">
+      <QueryFilter<AdvancedFilters>
+        form={form}
+        className={styles.queryFilter}
+        layout="vertical"
+        collapsed={false}
+        collapseRender={false}
+        labelWidth="auto"
+        span={{ xs: 24, sm: 12, md: 8, lg: 6, xl: 6, xxl: 4 }}
+        searchGutter={[16, 8]}
+        dateFormatter="string"
+        initialValues={{ eventTime: getDefaultEventTime() }}
+        searchText="查询"
+        resetText="重置"
+        onFinish={async (values) => {
+          selection.applyFilters({
+            ...values,
+            employeeDepartments: values.employeeDepartments ?? [],
+          });
+          return true;
+        }}
+        onReset={() => {
+          selection.applyFilters({ eventTime: getDefaultEventTime() });
+        }}
+      >
+        <ProFormText
+          name="student"
+          label="学生信息"
+          fieldProps={{
+            allowClear: true,
+            "aria-label": "搜索学生姓名或客户编号",
+          }}
+          placeholder="请输入姓名或编号"
+        />
+        <ProFormSelect
+          name="riskLevel"
+          label="风险等级"
+          options={Object.entries(riskLevelMeta).map(([value, meta]) => ({
+            label: meta.fullLabel,
+            value,
+          }))}
+          fieldProps={{ allowClear: true }}
+        />
+        <ProFormSelect
+          name="riskTypes"
+          label="风险类型"
+          options={riskTypeOptions}
+          fieldProps={{
+            allowClear: true,
+            maxTagCount: "responsive",
+            mode: "multiple",
+            placeholder: "请选择",
+          }}
+        />
+        <ProFormDateRangePicker
+          name="eventTime"
+          label="风险事件时间"
+          fieldProps={{ allowClear: true }}
+        />
+        <ProFormTreeSelect
+          name="employeeDepartments"
+          label="员工部门"
+          fieldProps={{
+            allowClear: true,
+            maxTagCount: "responsive",
+            placeholder: "请选择",
+            showCheckedStrategy: TreeSelect.SHOW_PARENT,
+            showSearch: true,
+            treeCheckable: true,
+            treeData: employeeDepartmentTree,
+            treeDefaultExpandAll: true,
+            treeNodeFilterProp: "title",
+          }}
+        />
+        <ProFormSelect
+          name="relatedPerson"
+          label="员工姓名"
+          options={relatedPersonOptions}
+          fieldProps={{ allowClear: true, showSearch: true }}
+        />
+      </QueryFilter>
+    </section>
+  );
+}
 
 type StudentSelectorProps = {
   selection: RiskStudentSelection;
@@ -165,137 +285,38 @@ export function StudentSelector({
   onSelect,
 }: StudentSelectorProps) {
   const { styles, cx } = useStudentSelectorStyles();
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [form] = Form.useForm<AdvancedFilters>();
-
-  const filterContent = (
-    <ProForm<AdvancedFilters>
-      form={form}
-      className={styles.filterForm}
-      layout="vertical"
-      submitter={false}
-      dateFormatter="string"
-      initialValues={selection.filters}
-      onFinish={async (values) => {
-        selection.setFilters(values);
-        setFilterOpen(false);
-      }}
-    >
-      <ProFormSelect
-        name="riskLevel"
-        label="风险等级"
-        options={Object.entries(riskLevelMeta).map(([value, meta]) => ({
-          label: meta.label,
-          value,
-        }))}
-        fieldProps={{ allowClear: true }}
-      />
-      <ProFormSelect
-        name="riskSources"
-        label="风险来源"
-        options={Object.entries(riskSourceMeta).map(([value, label]) => ({
-          label,
-          value,
-        }))}
-        fieldProps={{ mode: "multiple", allowClear: true }}
-      />
-      <ProFormDateRangePicker
-        name="eventTime"
-        label="风险事件时间"
-        fieldProps={{ allowClear: true }}
-      />
-      <ProFormTreeSelect
-        name="employeeDepartments"
-        label="员工部门"
-        fieldProps={{
-          allowClear: true,
-          maxTagCount: "responsive",
-          placeholder: "请选择",
-          showCheckedStrategy: TreeSelect.SHOW_PARENT,
-          showSearch: true,
-          treeCheckable: true,
-          treeData: employeeDepartmentTree,
-          treeDefaultExpandAll: true,
-          treeNodeFilterProp: "title",
-        }}
-      />
-      <ProFormSelect
-        name="relatedPerson"
-        label="相关人"
-        options={relatedPersonOptions}
-        fieldProps={{ allowClear: true, showSearch: true }}
-      />
-      <div className={styles.filterActions}>
-        <Button
-          onClick={() =>
-            form.setFieldsValue({
-              riskLevel: undefined,
-              riskSources: [],
-              eventTime: getDefaultEventTime(),
-              employeeDepartments: [],
-              relatedPerson: undefined,
-            })
-          }
-        >
-          重置
-        </Button>
-        <Button onClick={() => setFilterOpen(false)}>取消</Button>
-        <Button type="primary" onClick={() => form.submit()}>
-          应用
-        </Button>
-      </div>
-    </ProForm>
-  );
 
   return (
     <section className={styles.root} aria-label="选择学生">
-      <div className={styles.toolbar}>
-        <Input.Search
-          className={styles.search}
-          allowClear
-          aria-label="搜索学生姓名或客户编号"
-          placeholder="学生姓名/客户编号"
-          value={selection.keyword}
-          onChange={(event) => selection.setKeyword(event.target.value)}
-        />
-        <Dropdown
-          trigger={["click"]}
-          menu={{
-            selectedKeys: [selection.sort],
-            items: [
-              { key: "risk", label: "风险优先" },
-              { key: "latest", label: "最近风险时间" },
-              { key: "eventCount", label: "风险事件数" },
-            ],
-            onClick: ({ key }) =>
-              selection.setSort(key as RiskStudentSort),
-          }}
-        >
-          <Button aria-label="排序" icon={<SortAscendingOutlined />} />
-        </Dropdown>
-        <Popover
-          trigger="click"
-          placement="bottomLeft"
-          open={filterOpen}
-          onOpenChange={(open) => {
-            setFilterOpen(open);
-            if (open) form.setFieldsValue(toFilterFormValues(selection.filters));
-          }}
-          content={filterContent}
-        >
-          <Badge count={selection.activeFilterCount} size="small">
-            <Button aria-label="筛选" icon={<FilterOutlined />} />
-          </Badge>
-        </Popover>
-      </div>
-
+      <Tabs
+        className={styles.progressTabs}
+        size="small"
+        activeKey={selection.progress}
+        onChange={(key) =>
+          selection.applyProgress(key as StudentProgressFilter)
+        }
+        items={[
+          { key: "all", label: `全部（${selection.progressCounts.all}）` },
+          {
+            key: "pending",
+            label: `待处理（${selection.progressCounts.pending}）`,
+          },
+          {
+            key: "closed",
+            label: `已处理（${selection.progressCounts.closed}）`,
+          },
+        ]}
+      />
       <List
         className={styles.list}
-        dataSource={selection.visibleStudents}
+        dataSource={selection.pageStudents}
         locale={{ emptyText: <Empty description="暂无学生" /> }}
         renderItem={(student) => {
           const selected = student.id === selectedStudentId;
           const riskMeta = riskLevelMeta[student.riskLevel];
+          const progressLabel = student.pendingRiskCount
+            ? `有待处理风险 · ${student.pendingRiskCount}`
+            : "已全部闭环";
 
           return (
             <List.Item>
@@ -306,6 +327,7 @@ export function StudentSelector({
                   selected && styles.selectedCard,
                 )}
                 role="option"
+                aria-label={`${student.studentName} ${student.studentNumber} ${progressLabel}`}
                 aria-selected={selected}
                 tabIndex={0}
                 onClick={() => onSelect(student.id)}
@@ -325,9 +347,14 @@ export function StudentSelector({
                       {student.studentNumber}
                     </Typography.Text>
                   </Space>
-                  <Space size={4}>
-                    <Tag style={{ marginInlineEnd: 0 }}>
-                      风险事件 {student.riskEventCount}
+                  <Space size={[4, 4]} wrap>
+                    <Tag
+                      color={
+                        student.pendingRiskCount ? "processing" : "success"
+                      }
+                      style={{ marginInlineEnd: 0 }}
+                    >
+                      {progressLabel}
                     </Tag>
                     <Tag
                       color={riskMeta.color}
@@ -342,6 +369,18 @@ export function StudentSelector({
           );
         }}
       />
+
+      <div className={styles.pagination} aria-label="学生列表分页">
+        <Pagination
+          size="small"
+          simple
+          showSizeChanger={false}
+          current={selection.currentPage}
+          pageSize={selection.pageSize}
+          total={selection.visibleStudents.length}
+          onChange={selection.setCurrentPage}
+        />
+      </div>
     </section>
   );
 }

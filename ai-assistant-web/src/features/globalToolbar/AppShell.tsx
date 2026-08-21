@@ -1,4 +1,5 @@
 import { Grid } from "antd";
+import { useLocation } from "@umijs/max";
 import type { ReactNode } from "react";
 import { GlobalAssistantDrawer } from "./GlobalAssistantDrawer";
 import { GlobalAssistantPanel } from "./GlobalAssistantPanel";
@@ -9,8 +10,11 @@ import { useGlobalToolbar } from "./GlobalToolbarProvider";
 export function AppShell({ children }: { children: ReactNode }) {
   const { styles } = useGlobalToolbarStyles();
   const screens = Grid.useBreakpoint();
+  const location = useLocation();
   const { assistantOpen, assistantSurface } = useGlobalToolbar();
+  const assistantDisabled = location.pathname === "/quality/conversation";
   const showDockedAssistant =
+    !assistantDisabled &&
     Boolean(screens.xl) &&
     assistantOpen &&
     assistantSurface === "sidebar";
@@ -28,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </aside>
         ) : null}
       </div>
-      <GlobalAssistantDrawer />
+      <GlobalAssistantDrawer disabled={assistantDisabled} />
     </div>
   );
 }

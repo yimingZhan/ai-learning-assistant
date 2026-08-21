@@ -301,7 +301,9 @@ export type ComplaintRiskTypeConfig = {
   name: string;
   keywords: string[];
   positiveExamples: string[];
-  negativeExamples: string[];
+  highRiskDefinition: string;
+  mediumRiskDefinition: string;
+  lowRiskDefinition: string;
 };
 
 export type ComplaintRiskConfig = {

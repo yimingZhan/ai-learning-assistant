@@ -43,10 +43,7 @@ export function VersionHistoryDrawer({
       (stats, riskType) => ({
         riskTypes: stats.riskTypes + 1,
         keywords: stats.keywords + riskType.keywords.length,
-        examples:
-          stats.examples +
-          riskType.positiveExamples.length +
-          riskType.negativeExamples.length,
+        examples: stats.examples + riskType.positiveExamples.length,
       }),
       { riskTypes: 0, keywords: 0, examples: 0 },
     );
@@ -87,7 +84,7 @@ export function VersionHistoryDrawer({
                 </div>
                 <div className={styles.versionSnapshotGroup}>
                   <Typography.Text className={styles.versionSnapshotLabel}>
-                    正向参考案例
+                    参考案例
                   </Typography.Text>
                   <ol className={styles.versionSnapshotExamples}>
                     {riskType.positiveExamples.map((example, index) => (
@@ -97,20 +94,25 @@ export function VersionHistoryDrawer({
                     ))}
                   </ol>
                 </div>
-                {riskType.negativeExamples.length ? (
-                  <div className={styles.versionSnapshotGroup}>
-                    <Typography.Text className={styles.versionSnapshotLabel}>
-                      反向参考案例
-                    </Typography.Text>
-                    <ol className={styles.versionSnapshotExamples}>
-                      {riskType.negativeExamples.map((example, index) => (
-                        <li key={`${riskType.id}-negative-${index}`}>
-                          {example}
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                ) : null}
+                <div className={styles.versionSnapshotGroup}>
+                  <Typography.Text className={styles.versionSnapshotLabel}>
+                    风险等级定义
+                  </Typography.Text>
+                  <ol className={styles.versionSnapshotExamples}>
+                    <li>
+                      <Typography.Text strong>高：</Typography.Text>
+                      {riskType.highRiskDefinition}
+                    </li>
+                    <li>
+                      <Typography.Text strong>中：</Typography.Text>
+                      {riskType.mediumRiskDefinition}
+                    </li>
+                    <li>
+                      <Typography.Text strong>低：</Typography.Text>
+                      {riskType.lowRiskDefinition}
+                    </li>
+                  </ol>
+                </div>
               </div>
             ))}
           </div>

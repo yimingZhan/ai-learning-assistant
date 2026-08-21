@@ -4,7 +4,6 @@ import type {
   ConversationScope,
   ChatMessage,
   ComplaintRiskConfig,
-  ComplaintRiskVersion,
   CurrentUser,
   PlatformAssistantAuditLog,
   PlatformAssistantConfig,
@@ -26,8 +25,10 @@ import type {
 } from "./contracts";
 import type {
   FullChatMessage,
+  RiskEventStatus,
   RiskStudent,
   RiskStudentDetail,
+  UpdateRiskEventStatusResponse,
 } from "../pages/Quality/Conversation/riskData";
 import { getDemoApiBase } from "./mock/serviceWorkerUrl";
 
@@ -176,6 +177,20 @@ export const complaintRiskApi = {
     );
   },
 
+  updateEventStatus(
+    studentId: string,
+    eventId: string,
+    status: Exclude<RiskEventStatus, "pending">,
+  ) {
+    return requestJson<UpdateRiskEventStatusResponse>(
+      `/api/v1/complaint-risks/students/${encodeURIComponent(studentId)}/events/${encodeURIComponent(eventId)}/status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      },
+    );
+  },
+
   getEvidenceContext(evidenceId: string) {
     return requestJson<FullChatMessage[]>(
       `/api/v1/complaint-risks/evidence/${encodeURIComponent(evidenceId)}/context`,
@@ -275,36 +290,13 @@ export const aiConfigApi = {
     );
   },
 
-  saveComplaintRiskDraft(config: ComplaintRiskConfig) {
+  updateComplaintRiskConfig(config: ComplaintRiskConfig) {
     return requestJson<ComplaintRiskConfig>(
-      "/api/v1/ai-config/complaint-risk/draft",
+      "/api/v1/ai-config/complaint-risk",
       {
         method: "PATCH",
         body: JSON.stringify(config),
       },
-    );
-  },
-
-  publishComplaintRisk(config: ComplaintRiskConfig, changeNote: string) {
-    return requestJson<ComplaintRiskConfig>(
-      "/api/v1/ai-config/complaint-risk/publish",
-      {
-        method: "POST",
-        body: JSON.stringify({ config, changeNote }),
-      },
-    );
-  },
-
-  listComplaintRiskVersions() {
-    return requestJson<ComplaintRiskVersion[]>(
-      "/api/v1/ai-config/complaint-risk/versions",
-    );
-  },
-
-  rollbackComplaintRisk(version: string) {
-    return requestJson<ComplaintRiskConfig>(
-      `/api/v1/ai-config/complaint-risk/versions/${encodeURIComponent(version)}/rollback`,
-      { method: "POST" },
     );
   },
 

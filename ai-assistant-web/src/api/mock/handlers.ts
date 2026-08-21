@@ -37,12 +37,21 @@ import {
 import {
   riskStudentDetails,
   riskStudents,
+  type RiskEventStatus,
+  type RiskStudent,
+  type RiskStudentDetail,
 } from "../../pages/Quality/Conversation/riskData";
 
 let store: MockStore = createInitialStore();
+let complaintRiskStudents: RiskStudent[] = structuredClone(riskStudents);
+let complaintRiskDetails: Record<string, RiskStudentDetail> = structuredClone(
+  riskStudentDetails,
+);
 
 export function resetMockStore() {
   store = createInitialStore();
+  complaintRiskStudents = structuredClone(riskStudents);
+  complaintRiskDetails = structuredClone(riskStudentDetails);
 }
 
 function createId(prefix: string) {
@@ -175,8 +184,8 @@ export const handlers = [
 
   http.get("*/api/v1/complaint-risks/students", () =>
     HttpResponse.json({
-      items: structuredClone(riskStudents),
-      total: riskStudents.length,
+      items: structuredClone(complaintRiskStudents),
+      total: complaintRiskStudents.length,
       page: 1,
       pageSize: 100,
     }),
@@ -185,26 +194,98 @@ export const handlers = [
   http.get(
     "*/api/v1/complaint-risks/students/:studentId",
     ({ params }) => {
-      const detail = riskStudentDetails[String(params.studentId)];
+      const detail = complaintRiskDetails[String(params.studentId)];
       return detail
         ? HttpResponse.json(structuredClone(detail))
         : HttpResponse.json({ message: "学生风险记录不存在" }, { status: 404 });
     },
   ),
 
+  http.patch(
+    "*/api/v1/complaint-risks/students/:studentId/events/:eventId/status",
+    async ({ params, request }) => {
+      const studentId = String(params.studentId);
+      const eventId = String(params.eventId);
+      const detail = complaintRiskDetails[studentId];
+      const student = complaintRiskStudents.find((item) => item.id === studentId);
+
+      if (!detail || !student) {
+        return HttpResponse.json(
+          { message: "学生风险记录不存在" },
+          { status: 404 },
+        );
+      }
+
+      const body = (await request.json()) as { status?: RiskEventStatus };
+      if (body.status !== "resolved" && body.status !== "excluded") {
+        return HttpResponse.json(
+          { message: "不支持的风险状态" },
+          { status: 400 },
+        );
+      }
+
+      const event = detail.eventGroups
+        .flatMap((group) => group.events)
+        .find((item) => item.id === eventId);
+      if (!event) {
+        return HttpResponse.json(
+          { message: "风险事件不存在" },
+          { status: 404 },
+        );
+      }
+      if (event.status !== "pending") {
+        return HttpResponse.json(
+          { message: "该风险事件已处理，不能重复操作" },
+          { status: 409 },
+        );
+      }
+
+      event.status = body.status;
+      const operatedAt = currentTimestamp();
+      if (body.status === "resolved") {
+        event.resolvedBy = currentUser.name;
+        event.resolvedAt = operatedAt;
+      } else {
+        event.excludedBy = currentUser.name;
+        event.excludedAt = operatedAt;
+      }
+      detail.operationLogs.unshift({
+        id: createId("complaint-risk-operation"),
+        eventId: event.id,
+        category: "处理记录",
+        operationType:
+          body.status === "resolved" ? "标记风险为已处理" : "排除风险",
+        operator: currentUser.name,
+        result: "success",
+        operatedAt,
+        remark: `${event.riskType}风险${
+          body.status === "resolved" ? "已处理" : "已排除"
+        }`,
+      });
+      const pendingRiskCount = detail.eventGroups
+        .flatMap((group) => group.events)
+        .filter((item) => item.status === "pending").length;
+      student.pendingRiskCount = pendingRiskCount;
+      detail.student = structuredClone(student);
+      detail.currentStatus = pendingRiskCount ? "跟进中" : "已处理";
+
+      return HttpResponse.json({
+        student: structuredClone(student),
+        detail: structuredClone(detail),
+      });
+    },
+  ),
+
   http.get(
     "*/api/v1/complaint-risks/evidence/:evidenceId/context",
     ({ params }) => {
-      const evidence = Object.values(riskStudentDetails)
+      const evidence = Object.values(complaintRiskDetails)
         .flatMap((detail) => detail.eventGroups)
         .flatMap((group) => group.events)
         .flatMap((event) => event.evidence)
         .find((item) => item.id === String(params.evidenceId));
       return HttpResponse.json(
-        evidence?.sourceType === "wechat_direct" ||
-          evidence?.sourceType === "wechat_group"
-          ? structuredClone(evidence.fullChat)
-          : [],
+        evidence ? structuredClone(evidence.fullChat) : [],
       );
     },
   ),
@@ -469,12 +550,12 @@ export const handlers = [
   ),
 
   http.patch(
-    "*/api/v1/ai-config/complaint-risk/draft",
+    "*/api/v1/ai-config/complaint-risk",
     async ({ request }) => {
       const config = (await request.json()) as ComplaintRiskConfig;
       store.complaintRiskConfig = {
         ...structuredClone(config),
-        draftStatus: "saved",
+        draftStatus: "published",
         updatedAt: currentTimestamp(),
         updatedBy: currentUser.name,
       };

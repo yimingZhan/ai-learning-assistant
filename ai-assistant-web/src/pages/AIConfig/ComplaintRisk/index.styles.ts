@@ -18,11 +18,6 @@ export const useComplaintRiskConfigStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: ${token.marginMD}px;
   `,
-  statusCard: css`
-    .ant-card-body {
-      padding-block: ${token.paddingSM}px;
-    }
-  `,
   loadingState: css`
     min-height: 360px;
   `,
@@ -121,8 +116,5 @@ export const useComplaintRiskConfigStyles = createStyles(({ css, token }) => ({
       min-width: 32px;
       padding-inline: 0;
     }
-  `,
-  publishAlert: css`
-    margin-bottom: ${token.marginMD}px;
   `,
 }));

@@ -7,19 +7,40 @@ export const useStudentSelectorStyles = createStyles(({ css, token }) => ({
     min-height: 0;
     flex-direction: column;
   `,
-  toolbar: css`
-    display: flex;
-    flex: none;
-    gap: ${token.marginXS}px;
-    padding: ${token.paddingSM}px;
-    border-bottom: 1px solid ${token.colorBorderSecondary};
+  queryBar: css`
+    width: 100%;
   `,
-  search: css`
-    min-width: 0;
-    flex: 1;
+  queryFilter: css`
+    padding: ${token.paddingSM}px ${token.padding}px 0;
+
+    .ant-pro-query-filter-row {
+      row-gap: ${token.marginXS}px;
+    }
+
+    .ant-form-item {
+      margin-bottom: ${token.marginSM}px;
+    }
+
+    .ant-pro-query-filter-actions {
+      white-space: nowrap;
+    }
+  `,
+  progressTabs: css`
+    flex: none;
+    padding-inline: ${token.paddingSM}px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+
+    .ant-tabs-nav {
+      margin: 0;
+    }
+
+    .ant-tabs-tab {
+      padding-block: ${token.paddingSM}px;
+    }
   `,
   list: css`
     min-height: 0;
+    flex: 1;
     padding: ${token.paddingSM}px;
     overflow-y: auto;
 
@@ -47,17 +68,18 @@ export const useStudentSelectorStyles = createStyles(({ css, token }) => ({
     border-color: ${token.colorPrimary};
     background: ${token.colorPrimaryBg};
   `,
-  filterForm: css`
-    width: 300px;
-
-    .ant-pro-form-group-container {
-      width: 100%;
-    }
-  `,
-  filterActions: css`
+  pagination: css`
     display: flex;
-    justify-content: flex-end;
-    gap: ${token.marginXS}px;
-    margin-top: ${token.marginSM}px;
+    width: 100%;
+    max-width: 100%;
+    flex: none;
+    justify-content: center;
+    padding: ${token.paddingXS}px ${token.paddingSM}px ${token.paddingSM}px;
+    border-top: 1px solid ${token.colorBorderSecondary};
+    overflow: hidden;
+
+    .ant-pagination {
+      max-width: 100%;
+    }
   `,
 }));

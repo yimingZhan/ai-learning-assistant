@@ -36,20 +36,25 @@ test("平台助手配置支持能力治理、试跑发布与运行时生效", as
   await expect(page.getByText("✨ 唯寻 AI 学情助手", { exact: true })).toBeVisible();
 });
 
-test("客诉预警配置支持维护风险类型、保存和发布", async ({ page }) => {
+test("客诉预警配置支持维护风险类型并即时生效", async ({ page }) => {
   await page.goto("/#/ai-config/complaint-risk");
 
   await expect(
     page.getByText("AI 客诉预警配置", { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText("v1.0", { exact: true })).toBeVisible();
-  await expect(page.getByText("风险类型配置（5）", { exact: true })).toBeVisible();
-  await expect(page.getByText("共 21 个关键词", { exact: true })).toBeVisible();
+  await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
+  await expect(page.getByText("生效方式", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("最近更新", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("即时生效", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("共 16 个关键词", { exact: true })).toBeVisible();
   await expect(page.getByText("案例数量", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("退费", { exact: true })).toBeVisible();
-  await expect(page.getByText("我没有要退费，只是问一下规则", { exact: true })).toBeVisible();
-  await expect(page.getByText("一直联系不上你", { exact: true })).toBeVisible();
+  await expect(page.getByText("退费", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("我还是决定退掉，不继续上了。", { exact: true })).toBeVisible();
+  await expect(page.getByText("这几天一直联系不上老师。", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "配置试跑" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "版本记录" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "保存草稿" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "发布配置" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "新增风险类型" }).click();
   const editor = page.getByRole("dialog", { name: "新增风险类型" });
@@ -60,25 +65,30 @@ test("客诉预警配置支持维护风险类型、保存和发布", async ({ pa
   await keywordInput.fill("不合理");
   await keywordInput.press("Enter");
   await editor
-    .getByRole("textbox", { name: "正向参考案例 1", exact: true })
+    .getByRole("textbox", { name: "参考案例 1", exact: true })
     .fill("价格太贵了");
-  await editor.getByRole("button", { name: "新增正向参考案例" }).click();
+  await editor.getByRole("button", { name: "新增参考案例" }).click();
   await editor
-    .getByRole("textbox", { name: "正向参考案例 2", exact: true })
+    .getByRole("textbox", { name: "参考案例 2", exact: true })
     .fill("这个价格不合理");
-  await editor.getByRole("button", { name: "上移正向参考案例 2" }).click();
-  await editor.getByRole("button", { name: "新增反向参考案例" }).click();
+  await editor.getByRole("button", { name: "上移参考案例 2" }).click();
   await editor
-    .getByRole("textbox", { name: "反向参考案例 1", exact: true })
-    .fill("我只是想了解价格规则");
+    .getByRole("textbox", { name: "高风险定义" })
+    .fill("已明确因价格原因要求退费。");
+  await editor
+    .getByRole("textbox", { name: "中风险定义" })
+    .fill("明确表达价格异议。");
+  await editor
+    .getByRole("textbox", { name: "低风险定义" })
+    .fill("咨询价格或优惠信息。");
   await editor.getByRole("button", { name: "保存风险类型" }).click();
+  await expect(page.getByText("配置已更新并即时生效", { exact: true })).toBeVisible();
 
   const newTypeRow = page.getByRole("row", { name: /价格异议/ });
   await expect(newTypeRow.getByText("价格贵", { exact: true })).toBeVisible();
   await expect(newTypeRow.getByText("不合理", { exact: true })).toBeVisible();
   await expect(newTypeRow.getByText("这个价格不合理", { exact: true })).toBeVisible();
   await expect(newTypeRow.getByText("价格太贵了", { exact: true })).toBeVisible();
-  await expect(newTypeRow.getByText("我只是想了解价格规则", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "编辑价格异议" }).click();
   const editDrawer = page.getByRole("dialog", { name: "编辑风险类型" });
@@ -86,26 +96,20 @@ test("客诉预警配置支持维护风险类型、保存和发布", async ({ pa
   await editDrawer.getByRole("button", { name: "保存风险类型" }).click();
   await expect(page.getByText("费用异议", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "删除沟通问题" }).click();
-  const deleteConfirm = page.getByRole("dialog", { name: "删除“沟通问题”？" });
+  await page.getByRole("button", { name: "删除客诉" }).click();
+  const deleteConfirm = page.getByRole("dialog", { name: "删除“客诉”？" });
   await deleteConfirm.getByRole("button", { name: "确认删除" }).click();
-  await expect(page.getByText("沟通问题", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("客诉", { exact: true })).toHaveCount(0);
 
-  await expect(page.getByText("有未保存修改", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "保存草稿" }).click();
-  await expect(
-    page.getByText("草稿已保存", { exact: true }).first(),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "发布配置" }).click();
-  const publish = page.getByRole("dialog", {
-    name: "发布 AI 客诉预警配置",
+  const savedRiskTypeNames = await page.evaluate(async () => {
+    const response = await fetch("/api/v1/ai-config/complaint-risk");
+    const config = (await response.json()) as {
+      riskTypes: Array<{ name: string }>;
+    };
+    return config.riskTypes.map((riskType) => riskType.name);
   });
-  await publish.getByLabel("变更说明").fill("新增价格异议风险类型。");
-  await publish.getByRole("button", { name: "确认发布" }).click();
-
-  await expect(page.getByText("v1.1", { exact: true })).toBeVisible();
-  await expect(page.getByText("已发布", { exact: true })).toBeVisible();
+  expect(savedRiskTypeNames).toContain("费用异议");
+  expect(savedRiskTypeNames).not.toContain("客诉");
 });
 
 test("侧边菜单可进入客诉预警配置", async ({ page }) => {
@@ -115,29 +119,17 @@ test("侧边菜单可进入客诉预警配置", async ({ page }) => {
   await sider.getByText("AI 配置", { exact: true }).click();
   await sider.getByText("客诉预警配置", { exact: true }).click();
   await expect(page).toHaveURL(/\/ai-config\/complaint-risk/);
-  await expect(page.getByText("风险类型配置（5）", { exact: true })).toBeVisible();
+  await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
 });
 
-test("历史版本可查看配置并恢复且窄屏无页面级横向溢出", async ({ page }) => {
+test("客诉预警配置在窄屏无版本管理且无页面级横向溢出", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto("/#/ai-config/complaint-risk");
-  await expect(page.getByText("v1.0", { exact: true })).toBeVisible();
-
-  await page.getByRole("button", { name: "版本记录" }).click();
-  const history = page.getByRole("dialog", { name: "版本记录" });
-  const legacyRow = history.getByRole("row", { name: /v0\.9/ });
-  await expect(legacyRow.getByText("2 类风险类型", { exact: true })).toBeVisible();
-  await legacyRow.getByRole("button", { name: "查看v0.9配置" }).click();
-  const detail = page.getByRole("dialog", { name: "v0.9 配置详情" });
-  await expect(detail.getByText("跟进及时性", { exact: true })).toBeVisible();
-  await expect(detail.getByText("退费倾向", { exact: true })).toBeVisible();
-  await expect(detail.getByText("服务不满", { exact: true })).toHaveCount(0);
-  await detail.locator("button.ant-modal-close").click();
-  await legacyRow.getByRole("button", { name: /恢复v0\.9/ }).click();
-  await page.getByRole("button", { name: "确认恢复" }).click();
-  await expect(page.getByText("v1.1", { exact: true })).toBeVisible();
-
-  await history.getByRole("button", { name: "关闭" }).click();
+  await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
+  await expect(page.getByText("生效方式", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("最近更新", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("即时生效", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "版本记录" })).toHaveCount(0);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
@@ -149,7 +141,7 @@ test("风险类型配置内容超出视口时可纵向滚动到底部案例", as
   await page.goto("/#/ai-config/complaint-risk");
 
   const container = page.getByTestId("pro-page-container");
-  const lastExample = page.getByText("算了，不沟通了", { exact: true });
+  const lastExample = page.getByText("这个服务跟之前承诺的完全不一样。", { exact: true });
   await expect(lastExample).not.toBeInViewport();
 
   await lastExample.scrollIntoViewIfNeeded();

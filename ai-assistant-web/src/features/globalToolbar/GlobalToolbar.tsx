@@ -16,12 +16,10 @@ export function GlobalToolbar({
 }) {
   const location = useLocation();
   const { styles, cx } = useGlobalToolbarStyles();
-  const {
-    assistantActive,
-    openAssistant,
-    triggerAssistant,
-  } = useGlobalToolbar();
+  const { assistantActive, openAssistant, triggerAssistant } =
+    useGlobalToolbar();
   const standaloneAssistant = location.pathname === "/assistant";
+  const complaintWarning = location.pathname === "/quality/conversation";
   const assistantButtonActive = standaloneAssistant || assistantActive;
 
   return (
@@ -39,23 +37,27 @@ export function GlobalToolbar({
         />
       ) : null}
       <div className={styles.actions}>
-        <Tooltip
-          title={standaloneAssistant ? "聚焦 AI 输入框" : "打开当前页面 AI 助手"}
-        >
-          <Button
-            type="text"
-            aria-label="问 AI"
-            aria-pressed={assistantButtonActive}
-            className={cx(
-              styles.actionButton,
-              assistantButtonActive && styles.activeAction,
-            )}
-            icon={<RobotOutlined />}
-            onClick={standaloneAssistant ? openAssistant : triggerAssistant}
+        {!complaintWarning ? (
+          <Tooltip
+            title={
+              standaloneAssistant ? "聚焦 AI 输入框" : "打开当前页面 AI 助手"
+            }
           >
-            <span className={styles.actionLabel}>问 AI</span>
-          </Button>
-        </Tooltip>
+            <Button
+              type="text"
+              aria-label="问 AI"
+              aria-pressed={assistantButtonActive}
+              className={cx(
+                styles.actionButton,
+                assistantButtonActive && styles.activeAction,
+              )}
+              icon={<RobotOutlined />}
+              onClick={standaloneAssistant ? openAssistant : triggerAssistant}
+            >
+              <span className={styles.actionLabel}>问 AI</span>
+            </Button>
+          </Tooltip>
+        ) : null}
         <WorkReminderPopover />
         <HelpMenu className={styles.helpAction} />
         <UserMenu includeHelp={mobile} />

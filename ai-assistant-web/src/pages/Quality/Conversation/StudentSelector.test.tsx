@@ -3,6 +3,7 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import {
   getLinkedRiskStudentFilters,
+  StudentQueryBar,
   StudentSelector,
   useRiskStudentSelection,
 } from "./StudentSelector";
@@ -19,66 +20,104 @@ function StudentSelectorHarness() {
   );
 
   return (
-    <StudentSelector
-      selection={selection}
-      selectedStudentId={selectedStudentId}
-      onSelect={setSelectedStudentId}
-    />
+    <>
+      <StudentQueryBar selection={selection} />
+      <StudentSelector
+        selection={selection}
+        selectedStudentId={selectedStudentId}
+        onSelect={setSelectedStudentId}
+      />
+    </>
   );
 }
 
 describe("StudentSelector", () => {
-  it("自动选择风险最高的学生，卡片展示姓名、编号、等级和事件数", async () => {
+  it("默认展示待处理学生并展示分组数量", async () => {
     render(<StudentSelectorHarness />);
+
+    expect(screen.getByRole("tab", { name: "全部（6）" })).toBeTruthy();
+    const pendingTab = screen.getByRole("tab", { name: "待处理（5）" });
+    expect(pendingTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "已处理（1）" })).toBeTruthy();
 
     const linCard = await screen.findByRole("option", { name: /林家宁/ });
-    await waitFor(() => expect(linCard.getAttribute("aria-selected")).toBe("true"));
-
+    await waitFor(() =>
+      expect(linCard.getAttribute("aria-selected")).toBe("true"),
+    );
     expect(within(linCard).getByText("林家宁", { exact: true })).toBeTruthy();
     expect(within(linCard).getByText("S2026001", { exact: true })).toBeTruthy();
-    expect(within(linCard).getByText("高", { exact: true })).toBeTruthy();
     expect(
-      within(linCard).getByText("风险事件 5", { exact: true }),
+      within(linCard).getByText("有待处理风险 · 4", { exact: true }),
     ).toBeTruthy();
-    for (const hiddenValue of [
-      riskStudents[0].coreRisk,
-      riskStudents[0].latestRiskTime,
-      riskStudents[0].owner,
-    ]) {
-      expect(within(linCard).queryByText(hiddenValue, { exact: true })).toBeNull();
-    }
+    expect(screen.queryByRole("option", { name: /沈雨桐/ })).toBeNull();
   });
 
-  it("按学生姓名或客户编号即时搜索并更新选择", async () => {
+  it("切换已处理后仅展示无待处理风险的学生", async () => {
     render(<StudentSelectorHarness />);
 
-    fireEvent.change(
-      screen.getByRole("searchbox", {
-        name: "搜索学生姓名或客户编号",
-      }),
-      { target: { value: "S2026002" } },
-    );
+    fireEvent.click(screen.getByRole("tab", { name: "已处理（1）" }));
 
-    const chenCard = await screen.findByRole("option", { name: /陈子轩/ });
+    const closedCard = await screen.findByRole("option", { name: /沈雨桐/ });
     await waitFor(() =>
-      expect(chenCard.getAttribute("aria-selected")).toBe("true"),
+      expect(closedCard.getAttribute("aria-selected")).toBe("true"),
     );
+    expect(
+      within(closedCard).getByText("已全部闭环", { exact: true }),
+    ).toBeTruthy();
     expect(screen.queryByRole("option", { name: /林家宁/ })).toBeNull();
   });
 
-  it("在高级筛选中展示员工部门树形多选", async () => {
+  it("六项筛选始终展开并通过查询按钮应用", async () => {
     render(<StudentSelectorHarness />);
 
-    fireEvent.click(screen.getByRole("button", { name: "筛选" }));
+    for (const label of [
+      "学生信息",
+      "风险等级",
+      "风险类型",
+      "风险事件时间",
+      "员工部门",
+      "员工姓名",
+    ]) {
+      expect(screen.getByText(label, { exact: true })).toBeTruthy();
+    }
+    expect(screen.getByRole("button", { name: /查\s*询/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /重\s*置/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "排序" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "筛选" })).toBeNull();
 
-    expect(await screen.findByText("员工部门", { exact: true })).toBeTruthy();
-    fireEvent.mouseDown(
-      screen.getByRole("combobox", { name: "员工部门" }),
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "搜索学生姓名或客户编号" }),
+      { target: { value: "S2026002" } },
     );
-    expect(await screen.findByText("上海分校", { exact: true })).toBeTruthy();
-    expect(screen.getByText("学管部", { exact: true })).toBeTruthy();
-    expect(screen.getByText("上海学管一组", { exact: true })).toBeTruthy();
-    expect(screen.getByText("上海学管二组", { exact: true })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /林家宁/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /查\s*询/ }));
+    await waitFor(() =>
+      expect(screen.queryByRole("option", { name: /林家宁/ })).toBeNull(),
+    );
+    expect(screen.getByRole("option", { name: /陈子轩/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /重\s*置/ }));
+    expect(await screen.findByRole("option", { name: /林家宁/ })).toBeTruthy();
+  });
+
+  it("使用每页五人的紧凑分页并在翻页后选择页首学生", async () => {
+    const { container } = render(<StudentSelectorHarness />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "全部（6）" }));
+    expect(await screen.findAllByRole("option")).toHaveLength(5);
+    const pagination = screen.getByLabelText("学生列表分页");
+    expect(pagination.querySelector(".ant-pagination-simple")).toBeTruthy();
+    const nextButton = pagination.querySelector(
+      ".ant-pagination-next button",
+    ) as HTMLButtonElement;
+    fireEvent.click(nextButton);
+
+    const secondPageCard = await screen.findByRole("option", { name: /沈雨桐/ });
+    await waitFor(() =>
+      expect(secondPageCard.getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(container.querySelectorAll('[role="option"]')).toHaveLength(1);
   });
 });
 
@@ -106,8 +145,6 @@ describe("employee complaint drill-down filters", () => {
         new URLSearchParams({ riskLevel: "urgent", period: "90" }),
         new Date("2026-08-11T12:00:00+08:00"),
       ),
-    ).toEqual({
-      eventTime: ["2026-07-13", "2026-08-11"],
-    });
+    ).toEqual({ eventTime: ["2026-07-13", "2026-08-11"] });
   });
 });

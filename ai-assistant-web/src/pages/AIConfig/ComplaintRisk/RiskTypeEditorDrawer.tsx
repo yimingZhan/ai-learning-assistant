@@ -14,7 +14,7 @@ import {
   Space,
   Typography,
 } from "antd";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ComplaintRiskTypeConfig } from "../../../api/contracts";
 import { useComplaintRiskConfigStyles } from "./index.styles";
 
@@ -23,16 +23,21 @@ type RiskTypeEditorDrawerProps = {
   riskType: ComplaintRiskTypeConfig | null;
   existingRiskTypes: ComplaintRiskTypeConfig[];
   onClose: () => void;
-  onSave: (riskType: ComplaintRiskTypeConfig) => void;
+  onSave: (riskType: ComplaintRiskTypeConfig) => Promise<void>;
 };
 
 type RiskTypeFormValues = Pick<
   ComplaintRiskTypeConfig,
-  "name" | "keywords" | "positiveExamples" | "negativeExamples"
+  | "name"
+  | "keywords"
+  | "positiveExamples"
+  | "highRiskDefinition"
+  | "mediumRiskDefinition"
+  | "lowRiskDefinition"
 >;
 
 type ExampleListProps = {
-  name: "positiveExamples" | "negativeExamples";
+  name: "positiveExamples";
   label: string;
   description: string;
   required: boolean;
@@ -147,6 +152,7 @@ export function RiskTypeEditorDrawer({
 }: RiskTypeEditorDrawerProps) {
   const { styles } = useComplaintRiskConfigStyles();
   const [form] = Form.useForm<RiskTypeFormValues>();
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -156,9 +162,18 @@ export function RiskTypeEditorDrawer({
             name: riskType.name,
             keywords: [...riskType.keywords],
             positiveExamples: [...riskType.positiveExamples],
-            negativeExamples: [...riskType.negativeExamples],
+            highRiskDefinition: riskType.highRiskDefinition,
+            mediumRiskDefinition: riskType.mediumRiskDefinition,
+            lowRiskDefinition: riskType.lowRiskDefinition,
           }
-        : { name: "", keywords: [], positiveExamples: [""], negativeExamples: [] },
+        : {
+            name: "",
+            keywords: [],
+            positiveExamples: [""],
+            highRiskDefinition: "",
+            mediumRiskDefinition: "",
+            lowRiskDefinition: "",
+          },
     );
   }, [form, open, riskType]);
 
@@ -172,14 +187,20 @@ export function RiskTypeEditorDrawer({
     <Drawer
       title={riskType ? "编辑风险类型" : "新增风险类型"}
       open={open}
-      onClose={onClose}
+      onClose={saving ? undefined : onClose}
       size="large"
       destroyOnHidden
       footer={
         <Flex justify="end">
           <Space>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" onClick={() => form.submit()}>
+            <Button disabled={saving} onClick={onClose}>
+              取消
+            </Button>
+            <Button
+              type="primary"
+              loading={saving}
+              onClick={() => form.submit()}
+            >
               保存风险类型
             </Button>
           </Space>
@@ -189,19 +210,28 @@ export function RiskTypeEditorDrawer({
       <Form<RiskTypeFormValues>
         form={form}
         layout="vertical"
-        onFinish={(values) => {
-          onSave({
-            id: riskType?.id ?? createRiskTypeId(),
-            name: values.name.trim(),
-            keywords: (values.keywords ?? []).map((keyword) => keyword.trim()),
-            positiveExamples: values.positiveExamples.map((example) =>
-              example.trim(),
-            ),
-            negativeExamples: (values.negativeExamples ?? []).map((example) =>
-              example.trim(),
-            ),
-          });
-          onClose();
+        onFinish={async (values) => {
+          setSaving(true);
+          try {
+            await onSave({
+              id: riskType?.id ?? createRiskTypeId(),
+              name: values.name.trim(),
+              keywords: (values.keywords ?? []).map((keyword) =>
+                keyword.trim(),
+              ),
+              positiveExamples: values.positiveExamples.map((example) =>
+                example.trim(),
+              ),
+              highRiskDefinition: values.highRiskDefinition.trim(),
+              mediumRiskDefinition: values.mediumRiskDefinition.trim(),
+              lowRiskDefinition: values.lowRiskDefinition.trim(),
+            });
+            onClose();
+          } catch {
+            // 更新失败时保留当前表单，方便用户直接重试。
+          } finally {
+            setSaving(false);
+          }
         }}
       >
         <Form.Item
@@ -265,16 +295,70 @@ export function RiskTypeEditorDrawer({
 
         <ExampleList
           name="positiveExamples"
-          label="正向参考案例"
+          label="参考案例"
           description="表达应当命中该风险类型的典型语义，至少配置一条。"
           required
         />
-        <ExampleList
-          name="negativeExamples"
-          label="反向参考案例"
-          description="表达不应命中该风险类型的相似语义，可用于排除否定、转述和其他类型。"
-          required={false}
-        />
+
+        <Form.Item
+          name="highRiskDefinition"
+          label="高风险定义"
+          rules={[
+            {
+              required: true,
+              whitespace: true,
+              message: "请输入高风险定义",
+            },
+          ]}
+        >
+          <Input.TextArea
+            aria-label="高风险定义"
+            autoSize={{ minRows: 3, maxRows: 6 }}
+            placeholder="描述何种表达属于高风险，例如明确提出退费、强烈不满并反复投诉等"
+            maxLength={500}
+            showCount
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="mediumRiskDefinition"
+          label="中风险定义"
+          rules={[
+            {
+              required: true,
+              whitespace: true,
+              message: "请输入中风险定义",
+            },
+          ]}
+        >
+          <Input.TextArea
+            aria-label="中风险定义"
+            autoSize={{ minRows: 3, maxRows: 6 }}
+            placeholder="描述何种表达属于中风险，例如明显产生退费倾向但尚未决定"
+            maxLength={500}
+            showCount
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="lowRiskDefinition"
+          label="低风险定义"
+          rules={[
+            {
+              required: true,
+              whitespace: true,
+              message: "请输入低风险定义",
+            },
+          ]}
+        >
+          <Input.TextArea
+            aria-label="低风险定义"
+            autoSize={{ minRows: 3, maxRows: 6 }}
+            placeholder="描述何种表达属于低风险，例如轻微抱怨或咨询退费金额"
+            maxLength={500}
+            showCount
+          />
+        </Form.Item>
       </Form>
     </Drawer>
   );

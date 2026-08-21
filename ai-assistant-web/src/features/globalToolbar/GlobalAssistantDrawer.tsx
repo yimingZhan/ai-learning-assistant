@@ -2,7 +2,7 @@ import { Drawer, Grid } from "antd";
 import { GlobalAssistantPanel } from "./GlobalAssistantPanel";
 import { useGlobalToolbar } from "./GlobalToolbarProvider";
 
-export function GlobalAssistantDrawer() {
+export function GlobalAssistantDrawer({ disabled = false }: { disabled?: boolean }) {
   const screens = Grid.useBreakpoint();
   const {
     assistantSurface,
@@ -10,7 +10,7 @@ export function GlobalAssistantDrawer() {
     setAssistantOpen,
   } = useGlobalToolbar();
 
-  if (assistantSurface !== "sidebar" || screens.xl) return null;
+  if (disabled || assistantSurface !== "sidebar" || screens.xl) return null;
 
   return (
     <Drawer

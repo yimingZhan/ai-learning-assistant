@@ -10,10 +10,11 @@ import {
 
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
+  pathname: "/quality/conversation",
 }));
 
 vi.mock("@umijs/max", () => ({
-  useLocation: () => ({ pathname: "/quality/conversation" }),
+  useLocation: () => ({ pathname: routerMocks.pathname }),
   history: { push: routerMocks.push },
 }));
 
@@ -38,7 +39,10 @@ function EmbeddedToolbarHarness() {
 }
 
 describe("GlobalToolbar", () => {
-  beforeEach(() => window.sessionStorage.clear());
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    routerMocks.pathname = "/quality/conversation";
+  });
 
   it("shows global actions without a location breadcrumb or search box", async () => {
     renderToolbar();
@@ -46,9 +50,7 @@ describe("GlobalToolbar", () => {
     expect(screen.getByLabelText("全局工具栏")).toBeTruthy();
     expect(screen.queryByText("AI 质检")).toBeNull();
     expect(screen.queryByText("AI 客诉预警")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "问 AI" }).getAttribute("aria-pressed"),
-    ).toBe("false");
+    expect(screen.queryByRole("button", { name: "问 AI" })).toBeNull();
     expect(screen.getByRole("button", { name: "工作提醒" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "帮助" })).toBeTruthy();
     expect(screen.queryByRole("searchbox")).toBeNull();
@@ -58,6 +60,7 @@ describe("GlobalToolbar", () => {
 
   it("toggles the contextual assistant from the toolbar", async () => {
     const user = userEvent.setup();
+    routerMocks.pathname = "/renewal/opportunities";
     renderToolbar();
 
     const trigger = screen.getByRole("button", { name: "问 AI" });
@@ -68,6 +71,7 @@ describe("GlobalToolbar", () => {
   });
 
   it("keeps the AI entry visible for embedded assistant surfaces", () => {
+    routerMocks.pathname = "/renewal/opportunities";
     render(
       <GlobalToolbarProvider>
         <EmbeddedToolbarHarness />

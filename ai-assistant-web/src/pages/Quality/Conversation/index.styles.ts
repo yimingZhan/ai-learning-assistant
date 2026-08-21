@@ -14,9 +14,29 @@ export const useConversationStyles = createStyles(({ css, token }) => ({
       min-height: 0;
     }
   `,
-  workspace: css`
+  page: css`
+    display: flex;
     width: 100%;
     height: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    background: ${token.colorBgLayout};
+    overflow: hidden;
+  `,
+  top: css`
+    flex: none;
+    padding: ${token.paddingSM}px;
+    padding-bottom: 0;
+  `,
+  topCard: css`
+    background: ${token.colorBgContainer};
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadiusLG}px;
+  `,
+  workspace: css`
+    width: 100%;
+    flex: 1;
     min-height: 0;
     padding: ${token.paddingSM}px;
     box-sizing: border-box;

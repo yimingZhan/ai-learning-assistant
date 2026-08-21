@@ -1,10 +1,7 @@
 import {
   DeleteOutlined,
   EditOutlined,
-  HistoryOutlined,
   PlusOutlined,
-  SaveOutlined,
-  SendOutlined,
 } from "@ant-design/icons";
 import {
   PageContainer,
@@ -15,11 +12,8 @@ import {
   Alert,
   Button,
   Card,
-  Descriptions,
   Empty,
   Flex,
-  Form,
-  Input,
   Modal,
   Space,
   Spin,
@@ -32,10 +26,8 @@ import { aiConfigApi } from "../../../api/client";
 import type {
   ComplaintRiskConfig,
   ComplaintRiskTypeConfig,
-  ComplaintRiskVersion,
 } from "../../../api/contracts";
 import { RiskTypeEditorDrawer } from "./RiskTypeEditorDrawer";
-import { VersionHistoryDrawer } from "./VersionHistoryDrawer";
 import { useComplaintRiskConfigStyles } from "./index.styles";
 
 function normalizedKey(value: string) {
@@ -52,9 +44,9 @@ export function normalizeRiskTypes(
     positiveExamples: riskType.positiveExamples.map((example) =>
       example.trim(),
     ),
-    negativeExamples: riskType.negativeExamples.map((example) =>
-      example.trim(),
-    ),
+    highRiskDefinition: riskType.highRiskDefinition.trim(),
+    mediumRiskDefinition: riskType.mediumRiskDefinition.trim(),
+    lowRiskDefinition: riskType.lowRiskDefinition.trim(),
   }));
 }
 
@@ -100,27 +92,23 @@ export function validateConfiguration(
       return `“${riskType.name.trim()}”的关键词不能重复`;
     }
     if (!riskType.positiveExamples.length) {
-      return `“${riskType.name.trim()}”至少添加一条正向参考案例`;
+      return `“${riskType.name.trim()}”至少添加一条参考案例`;
     }
     const positiveExamples = riskType.positiveExamples.map(normalizedKey);
-    const negativeExamples = riskType.negativeExamples.map(normalizedKey);
     if (positiveExamples.some((example) => !example)) {
-      return `“${riskType.name.trim()}”的正向参考案例不能为空`;
-    }
-    if (negativeExamples.some((example) => !example)) {
-      return `“${riskType.name.trim()}”的反向参考案例不能为空`;
+      return `“${riskType.name.trim()}”的参考案例不能为空`;
     }
     if (new Set(positiveExamples).size !== positiveExamples.length) {
-      return `“${riskType.name.trim()}”的正向参考案例不能重复`;
+      return `“${riskType.name.trim()}”的参考案例不能重复`;
     }
-    if (new Set(negativeExamples).size !== negativeExamples.length) {
-      return `“${riskType.name.trim()}”的反向参考案例不能重复`;
+    if (!riskType.highRiskDefinition.trim()) {
+      return `“${riskType.name.trim()}”的高风险定义不能为空`;
     }
-    if (
-      new Set([...positiveExamples, ...negativeExamples]).size !==
-      positiveExamples.length + negativeExamples.length
-    ) {
-      return `“${riskType.name.trim()}”的正向和反向参考案例不能重复`;
+    if (!riskType.mediumRiskDefinition.trim()) {
+      return `“${riskType.name.trim()}”的中风险定义不能为空`;
+    }
+    if (!riskType.lowRiskDefinition.trim()) {
+      return `“${riskType.name.trim()}”的低风险定义不能为空`;
     }
   }
 
@@ -129,24 +117,13 @@ export function validateConfiguration(
 
 export default function ComplaintRiskConfigPage() {
   const { styles } = useComplaintRiskConfigStyles();
-  const [publishForm] = Form.useForm<{ changeNote: string }>();
   const [config, setConfig] = useState<ComplaintRiskConfig | null>(null);
   const [riskTypes, setRiskTypes] = useState<ComplaintRiskTypeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [publishOpen, setPublishOpen] = useState(false);
-  const [pendingPublishConfig, setPendingPublishConfig] =
-    useState<ComplaintRiskConfig | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRiskType, setEditingRiskType] =
     useState<ComplaintRiskTypeConfig | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [rollbackLoading, setRollbackLoading] = useState<string | null>(null);
-  const [versions, setVersions] = useState<ComplaintRiskVersion[]>([]);
 
   async function loadConfig() {
     setLoading(true);
@@ -155,7 +132,6 @@ export default function ComplaintRiskConfigPage() {
       const nextConfig = await aiConfigApi.getComplaintRiskConfig();
       setConfig(nextConfig);
       setRiskTypes(nextConfig.riskTypes);
-      setDirty(false);
     } catch {
       setLoadError(true);
     } finally {
@@ -167,11 +143,11 @@ export default function ComplaintRiskConfigPage() {
     void loadConfig();
   }, []);
 
-  function buildCurrentConfig() {
+  function buildConfig(nextRiskTypes: ComplaintRiskTypeConfig[]) {
     if (!config) return null;
     const nextConfig: ComplaintRiskConfig = {
       ...config,
-      riskTypes: normalizeRiskTypes(riskTypes),
+      riskTypes: normalizeRiskTypes(nextRiskTypes),
     };
     const error = validateConfiguration(nextConfig);
     if (error) {
@@ -184,94 +160,35 @@ export default function ComplaintRiskConfigPage() {
   function applyServerConfig(nextConfig: ComplaintRiskConfig) {
     setConfig(nextConfig);
     setRiskTypes(nextConfig.riskTypes);
-    setDirty(false);
   }
 
-  async function saveDraft() {
-    const nextConfig = buildCurrentConfig();
-    if (!nextConfig) return;
-    setSaving(true);
+  async function persistRiskTypes(nextRiskTypes: ComplaintRiskTypeConfig[]) {
+    const nextConfig = buildConfig(nextRiskTypes);
+    if (!nextConfig) throw new Error("invalid configuration");
     try {
-      applyServerConfig(await aiConfigApi.saveComplaintRiskDraft(nextConfig));
-      message.success("草稿已保存");
-    } catch {
-      message.error("保存失败，页面中的修改已保留");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function openPublish() {
-    const nextConfig = buildCurrentConfig();
-    if (!nextConfig) return;
-    setPendingPublishConfig(nextConfig);
-    publishForm.resetFields();
-    setPublishOpen(true);
-  }
-
-  async function publishConfig() {
-    if (!pendingPublishConfig) return;
-    const { changeNote } = await publishForm.validateFields();
-    setPublishing(true);
-    try {
-      const nextConfig = await aiConfigApi.publishComplaintRisk(
-        pendingPublishConfig,
-        changeNote.trim(),
+      applyServerConfig(
+        await aiConfigApi.updateComplaintRiskConfig(nextConfig),
       );
-      applyServerConfig(nextConfig);
-      setPublishOpen(false);
-      setPendingPublishConfig(null);
-      message.success(`${nextConfig.publishedVersion} 已发布`);
-    } catch {
-      message.error("发布失败，页面中的修改已保留");
-    } finally {
-      setPublishing(false);
+      message.success("配置已更新并即时生效");
+    } catch (error) {
+      message.error("配置更新失败，请重试");
+      throw error;
     }
   }
 
-  async function openHistory() {
-    setHistoryOpen(true);
-    setHistoryLoading(true);
-    try {
-      setVersions(await aiConfigApi.listComplaintRiskVersions());
-    } catch {
-      message.error("版本记录加载失败");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
-
-  async function rollback(version: string) {
-    setRollbackLoading(version);
-    try {
-      const nextConfig = await aiConfigApi.rollbackComplaintRisk(version);
-      applyServerConfig(nextConfig);
-      setVersions(await aiConfigApi.listComplaintRiskVersions());
-      message.success(`已以 ${version} 的配置创建 ${nextConfig.publishedVersion}`);
-    } catch {
-      message.error("回滚失败，请稍后重试");
-      throw new Error("rollback failed");
-    } finally {
-      setRollbackLoading(null);
-    }
-  }
-
-  function saveRiskType(riskType: ComplaintRiskTypeConfig) {
-    setRiskTypes((current) => upsertRiskType(current, riskType));
-    setDirty(true);
+  async function saveRiskType(riskType: ComplaintRiskTypeConfig) {
+    await persistRiskTypes(upsertRiskType(riskTypes, riskType));
   }
 
   function deleteRiskType(riskType: ComplaintRiskTypeConfig) {
     Modal.confirm({
       title: `删除“${riskType.name}”？`,
-      content: "删除后，该风险类型及其所有关键词、正向案例和反向案例将从当前草稿中移除。",
+      content: "删除后，该风险类型及其所有关键词、参考案例和风险等级定义将立即移除并生效。",
       okText: "确认删除",
       cancelText: "取消",
       okButtonProps: { danger: true },
-      onOk: () => {
-        setRiskTypes((current) => removeRiskTypeById(current, riskType.id));
-        setDirty(true);
-      },
+      onOk: () =>
+        persistRiskTypes(removeRiskTypeById(riskTypes, riskType.id)),
     });
   }
 
@@ -311,9 +228,9 @@ export default function ComplaintRiskConfigPage() {
         ),
     },
     {
-      title: "正向案例",
+      title: "参考案例",
       dataIndex: "positiveExamples",
-      width: 330,
+      width: 300,
       render: (_, record) => (
         <ol className={styles.referenceList}>
           {record.positiveExamples.map((example, index) => (
@@ -327,23 +244,37 @@ export default function ComplaintRiskConfigPage() {
       ),
     },
     {
-      title: "反向案例",
-      dataIndex: "negativeExamples",
-      width: 330,
-      render: (_, record) =>
-        record.negativeExamples.length ? (
-          <ol className={styles.referenceList}>
-            {record.negativeExamples.map((example, index) => (
-              <li key={`${record.id}-negative-${index}`}>
-                <Typography.Text data-testid="negative-example">
-                  {example}
-                </Typography.Text>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <Typography.Text type="secondary">未配置</Typography.Text>
-        ),
+      title: "高风险定义",
+      dataIndex: "highRiskDefinition",
+      width: 280,
+      ellipsis: true,
+      render: (_, record) => (
+        <Typography.Text data-testid="high-risk-definition">
+          {record.highRiskDefinition}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: "中风险定义",
+      dataIndex: "mediumRiskDefinition",
+      width: 280,
+      ellipsis: true,
+      render: (_, record) => (
+        <Typography.Text data-testid="medium-risk-definition">
+          {record.mediumRiskDefinition}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: "低风险定义",
+      dataIndex: "lowRiskDefinition",
+      width: 280,
+      ellipsis: true,
+      render: (_, record) => (
+        <Typography.Text data-testid="low-risk-definition">
+          {record.lowRiskDefinition}
+        </Typography.Text>
+      ),
     },
     {
       title: "操作",
@@ -403,77 +334,13 @@ export default function ComplaintRiskConfigPage() {
     );
   }
 
-  const statusTag = dirty ? (
-    <Tag color="warning">有未保存修改</Tag>
-  ) : config.draftStatus === "saved" ? (
-    <Tag color="processing">草稿已保存</Tag>
-  ) : (
-    <Tag color="success">已发布</Tag>
-  );
-
   return (
-    <PageContainer
-      className={styles.page}
-      extra={[
-        <Button
-          key="history"
-          icon={<HistoryOutlined />}
-          onClick={() => void openHistory()}
-        >
-          版本记录
-        </Button>,
-        <Button
-          key="save"
-          icon={<SaveOutlined />}
-          loading={saving}
-          onClick={() => void saveDraft()}
-        >
-          保存草稿
-        </Button>,
-        <Button
-          key="publish"
-          type="primary"
-          icon={<SendOutlined />}
-          onClick={openPublish}
-        >
-          发布配置
-        </Button>,
-      ]}
-    >
+    <PageContainer className={styles.page}>
       <div className={styles.content}>
-        <Card className={styles.statusCard}>
-          <Descriptions
-            size="small"
-            column={{ xs: 1, sm: 2, lg: 4 }}
-            items={[
-              {
-                key: "publishedVersion",
-                label: "当前生效版本",
-                children: <Tag color="blue">{config.publishedVersion}</Tag>,
-              },
-              {
-                key: "draftVersion",
-                label: "当前草稿",
-                children: config.draftVersion,
-              },
-              {
-                key: "status",
-                label: "配置状态",
-                children: statusTag,
-              },
-              {
-                key: "updated",
-                label: "最近更新",
-                children: `${config.updatedAt} · ${config.updatedBy}`,
-              },
-            ]}
-          />
-        </Card>
-
         <Alert
           showIcon
           type="info"
-          description="关键词命中不会直接生成风险事件；AI 会结合正反向案例和上下文排除否定、转述，且同一段聊天可以命中多个风险类型。"
+          description="关键词命中不会直接生成风险事件；AI 会结合参考案例和上下文排除否定、转述，且同一段聊天可以命中多个风险类型。"
         />
 
         <ProTable<ComplaintRiskTypeConfig>
@@ -485,7 +352,7 @@ export default function ComplaintRiskConfigPage() {
           options={false}
           pagination={false}
           cardBordered
-          scroll={{ x: 1350 }}
+          scroll={{ x: 1650 }}
           toolBarRender={() => [
             <Typography.Text key="total" type="secondary">
               共 {totalKeywords} 个关键词
@@ -512,51 +379,6 @@ export default function ComplaintRiskConfigPage() {
         onClose={() => setEditorOpen(false)}
         onSave={saveRiskType}
       />
-
-      <VersionHistoryDrawer
-        open={historyOpen}
-        loading={historyLoading}
-        rollbackLoading={rollbackLoading}
-        versions={versions}
-        onClose={() => setHistoryOpen(false)}
-        onRollback={rollback}
-      />
-
-      <Modal
-        title="发布 AI 客诉预警配置"
-        open={publishOpen}
-        okText="确认发布"
-        cancelText="取消"
-        confirmLoading={publishing}
-        onCancel={() => setPublishOpen(false)}
-        onOk={() => void publishConfig()}
-        destroyOnHidden
-      >
-        <Alert
-          showIcon
-          type="warning"
-          title="发布后将创建新版本，供后续 AI 风险类型判断使用；不会重算当前静态演示列表。"
-          className={styles.publishAlert}
-        />
-        <Form form={publishForm} layout="vertical">
-          <Form.Item
-            name="changeNote"
-            label="变更说明"
-            rules={[
-              {
-                required: true,
-                whitespace: true,
-                message: "请填写本次变更说明",
-              },
-            ]}
-          >
-            <Input.TextArea
-              autoSize={{ minRows: 3, maxRows: 6 }}
-              placeholder="说明本次新增、修改或删除了哪些风险类型、关键词或正反向案例"
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </PageContainer>
   );
 }
