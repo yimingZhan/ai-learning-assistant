@@ -33,6 +33,7 @@
 # Editor and OS files
 .idea/
 .vscode/
+/.workbuddy/
 *.swp
 *.swo
 

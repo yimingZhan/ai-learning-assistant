@@ -27,10 +27,13 @@ export const useComplaintRiskConfigStyles = createStyles(({ css, token }) => ({
     gap: ${token.marginMD}px;
     min-width: 0;
   `,
-  promptCard: css`
-    .ant-typography {
-      margin-bottom: ${token.marginSM}px;
-    }
+  promptDescription: css`
+    margin-bottom: ${token.marginSM}px !important;
+  `,
+  promptPreview: css`
+    margin-bottom: 0 !important;
+    white-space: pre-wrap;
+    line-height: ${token.lineHeightLG};
   `,
   referenceList: css`
     margin: 0;

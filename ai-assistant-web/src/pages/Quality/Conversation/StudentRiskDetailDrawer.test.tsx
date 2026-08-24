@@ -330,7 +330,11 @@ describe("StudentRiskDetail", () => {
     expect(within(summary).getByText("林家宁", { exact: true })).toBeTruthy();
     expect(within(summary).getByText("S2026001", { exact: true })).toBeTruthy();
     expect(within(summary).getByText("12年级", { exact: true })).toBeTruthy();
+    expect(within(summary).queryByText("高风险", { exact: true })).toBeNull();
     expect(within(summary).queryByText("高风险 × 2")).toBeNull();
+    expect(within(summary).getByText("当前跟进顾问", { exact: true })).toBeTruthy();
+    expect(within(summary).getByText("共享顾问", { exact: true })).toBeTruthy();
+    expect(within(summary).queryByText("跟进顾问", { exact: true })).toBeNull();
     expect(within(riskStats).getByText("高风险 × 2")).toBeTruthy();
     expect(within(riskStats).getByText("中风险 × 2")).toBeTruthy();
     expect(within(riskStats).getByText("低风险 × 1")).toBeTruthy();
@@ -343,12 +347,14 @@ describe("StudentRiskDetail", () => {
       "风险总结",
       "命中关键词",
       "处理状态",
-      "证据数",
       "操作",
     ]) {
       expect(within(events).getByRole("columnheader", { name: column })).toBeTruthy();
     }
     expect(within(events).getAllByRole("row")).toHaveLength(6);
+    expect(
+      within(events).queryByRole("columnheader", { name: "证据数" }),
+    ).toBeNull();
     expect(within(events).getAllByRole("button", { name: "详情" })).toHaveLength(5);
     expect(
       within(events).getByLabelText("命中关键词 找不到人、联系不上、未反馈"),

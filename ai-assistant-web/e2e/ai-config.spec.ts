@@ -53,11 +53,25 @@ test("客诉预警配置支持维护风险类型并即时生效", async ({ page 
 
   await summaryPromptTab.click();
   await expect(page.getByText("系统提示词", { exact: true })).toBeVisible();
-  const summaryPrompt = page.getByRole("textbox", { name: "AI 总结提示词" });
-  const saveSummaryPrompt = page.getByRole("button", { name: "保存提示词" });
-  await expect(summaryPrompt).toHaveValue(
-    "你是 AI 客诉预警助手。请仅基于已提供的学生沟通记录、已识别的风险事件和处理状态生成风险总结。总结应客观、简洁，优先说明当前仍待处理的核心风险及其依据，不得补充数据中不存在的事实；对已排除或已处理的风险需明确区分，信息不足时直接说明需要人工核实。",
-  );
+  const initialPrompt =
+    "你是 AI 客诉预警助手。请仅基于已提供的学生沟通记录、已识别的风险事件和处理状态生成风险总结。总结应客观、简洁，优先说明当前仍待处理的核心风险及其依据，不得补充数据中不存在的事实；对已排除或已处理的风险需明确区分，信息不足时直接说明需要人工核实。";
+  await expect(page.getByText(initialPrompt, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "AI 总结提示词" }),
+  ).toHaveCount(0);
+
+  await page.getByRole("button", { name: "编辑 AI 总结提示词" }).click();
+  const promptEditor = page.getByRole("dialog", {
+    name: "编辑 AI 总结提示词",
+  });
+  await expect(promptEditor).toHaveClass(/ant-drawer-section/);
+  const summaryPrompt = promptEditor.getByRole("textbox", {
+    name: "AI 总结提示词",
+  });
+  const saveSummaryPrompt = promptEditor.getByRole("button", {
+    name: /保\s*存/,
+  });
+  await expect(summaryPrompt).toHaveValue(initialPrompt);
   await expect(saveSummaryPrompt).toBeDisabled();
 
   await summaryPrompt.fill("   ");
@@ -69,8 +83,13 @@ test("客诉预警配置支持维护风险类型并即时生效", async ({ page 
   await expect(
     page.getByText("AI 总结提示词已更新并即时生效", { exact: true }),
   ).toBeVisible();
-  await expect(summaryPrompt).toHaveValue("只总结当前仍待处理的客诉风险。");
-  await expect(saveSummaryPrompt).toBeDisabled();
+  await expect(promptEditor).toHaveCount(0);
+  await expect(
+    page.getByText("只总结当前仍待处理的客诉风险。", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "AI 总结提示词" }),
+  ).toHaveCount(0);
 
   await riskTypesTab.click();
   await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
@@ -165,16 +184,6 @@ test("客诉预警配置在窄屏无版本管理且无页面级横向溢出", as
   const summaryPromptTab = page.getByRole("tab", { name: "AI 总结提示词" });
   await expect(riskTypesTab).toBeVisible();
   await expect(summaryPromptTab).toBeVisible();
-  await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
-  await summaryPromptTab.click();
-  await expect(
-    page.getByRole("textbox", { name: "AI 总结提示词" }),
-  ).toBeVisible();
-  const promptOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(promptOverflow).toBeLessThanOrEqual(1);
-  await riskTypesTab.click();
   await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
   await expect(page.getByText("生效方式", { exact: true })).toHaveCount(0);
   await expect(page.getByText("最近更新", { exact: true })).toHaveCount(0);

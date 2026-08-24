@@ -43,9 +43,6 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
   studentNumber: css`
     font-variant-numeric: tabular-nums;
   `,
-  overallRiskTag: css`
-    margin-inline-end: 0;
-  `,
   summaryDescriptions: css`
     min-width: 0;
 
@@ -168,9 +165,6 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
       overflow: hidden;
       text-overflow: ellipsis;
     }
-  `,
-  evidenceNumber: css`
-    font-variant-numeric: tabular-nums;
   `,
   tableOperations: css`
     white-space: nowrap;

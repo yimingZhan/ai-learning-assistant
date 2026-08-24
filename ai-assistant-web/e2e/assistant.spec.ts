@@ -11,12 +11,12 @@ test.beforeEach(async ({ page }) => {
   ).toBeVisible();
 });
 
-test("客诉预警页不展示 AI 入口或已保存的助手侧栏", async ({ page }) => {
+test("全局工具栏不展示问 AI 和工作提醒", async ({ page }) => {
   const toolbar = page.locator('[aria-label="全局工具栏"]:visible');
 
   await expect(toolbar).toHaveCount(1);
   await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
-  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(0);
   await expect(toolbar.getByRole("button", { name: "帮助" })).toBeVisible();
   await expect(toolbar.getByRole("button", { name: "用户菜单" })).toBeVisible();
   await expect(page.getByRole("region", { name: /客诉 AI 助手/ })).toHaveCount(0);
@@ -24,18 +24,13 @@ test("客诉预警页不展示 AI 入口或已保存的助手侧栏", async ({ p
   await expect(page.getByRole("button", { name: /向 AI 咨询/ })).toHaveCount(0);
 
   await page.goto("/#/quality/employee-complaints");
-  await expect(toolbar.getByRole("button", { name: "问 AI" })).toBeVisible();
-  await toolbar.getByRole("button", { name: "问 AI" }).click();
-  await expect(page.getByLabel("AI 助手侧栏")).toBeVisible();
-
-  await page.getByRole("link", { name: "AI 客诉预警" }).click();
-  await expect(page).toHaveURL(/\/quality\/conversation/);
   await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(0);
   await expect(page.getByLabel("AI 助手侧栏")).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "AI 助手" })).toHaveCount(0);
 });
 
-test("其他页面保留完整 AI 助手与全局工具栏", async ({ page }) => {
+test("AI 助手页面保持可用且全局工具栏只保留基础入口", async ({ page }) => {
   await page.getByRole("link", { name: "AI 助手" }).click();
   await expect(page).toHaveURL(/\/assistant$/);
   await expect(page.getByRole("region", { name: "AI 助手对话" })).toBeVisible();
@@ -43,8 +38,8 @@ test("其他页面保留完整 AI 助手与全局工具栏", async ({ page }) =>
   await expect(page.getByRole("button", { name: "打开历史会话" })).toBeVisible();
 
   const toolbar = page.locator('[aria-label="全局工具栏"]:visible');
-  await expect(toolbar.getByRole("button", { name: "问 AI" })).toBeVisible();
-  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(0);
   await expect(toolbar.getByRole("button", { name: "帮助" })).toBeVisible();
 
   const layout = await page.evaluate(() => {
@@ -67,7 +62,7 @@ test("其他页面保留完整 AI 助手与全局工具栏", async ({ page }) =>
   expect(layout.senderBottom).toBeLessThanOrEqual(layout.viewportHeight);
 });
 
-test("工作提醒、帮助和用户入口保持可用", async ({ page }) => {
+test("帮助和用户入口保持可用", async ({ page }) => {
   const toolbar = page.locator('[aria-label="全局工具栏"]:visible');
 
   await toolbar.getByRole("button", { name: "帮助" }).click();
@@ -78,12 +73,6 @@ test("工作提醒、帮助和用户入口保持可用", async ({ page }) => {
   await expect(page.getByText("上海中心 · 学管组", { exact: true })).toBeVisible();
   await expect(page.getByText("当前角色：学管", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
-
-  await toolbar.getByRole("button", { name: "工作提醒" }).click();
-  await expect(page.getByText("林家宁客诉风险升至高风险", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "查看全部" }).click();
-  await expect(page).toHaveURL(/\/work-reminders$/);
-  await expect(page.getByText("工作提醒", { exact: true }).first()).toBeVisible();
 });
 
 test("移动端依然对客诉预警隐藏 AI，并将帮助收入用户菜单", async ({ page }) => {
@@ -191,12 +180,14 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
     "风险总结",
     "命中关键词",
     "处理状态",
-    "证据数",
     "操作",
   ]) {
     await expect(riskTable.getByRole("columnheader", { name: column })).toBeVisible();
   }
   await expect(riskTable.getByRole("button", { name: "详情" })).toHaveCount(5);
+  await expect(
+    riskTable.getByRole("columnheader", { name: "证据数" }),
+  ).toHaveCount(0);
   expect(
     await riskStats.evaluate(
       (element, table) =>

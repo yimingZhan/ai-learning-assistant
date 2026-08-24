@@ -114,8 +114,9 @@ export type RiskWorkflowStep = {
 
 export type RiskServiceProfile = {
   grade: string;
-  followUpAdvisor: string;
+  currentFollowUpAdvisor: string;
   followUpManager: string;
+  sharedAdvisor: string;
   planner: string;
   course: string;
   serviceMode: string;
@@ -556,8 +557,9 @@ function createDetail(
 const profiles: Record<string, RiskServiceProfile> = {
   "risk-student-001": {
     grade: "12年级",
-    followUpAdvisor: "周欣",
+    currentFollowUpAdvisor: "周欣",
     followUpManager: "周欣",
+    sharedAdvisor: "钱悦",
     planner: "钱悦",
     course: "A-Level 数学进阶",
     serviceMode: "1 对 1",
@@ -566,8 +568,9 @@ const profiles: Record<string, RiskServiceProfile> = {
   },
   "risk-student-002": {
     grade: "11年级",
-    followUpAdvisor: "李辰",
+    currentFollowUpAdvisor: "李辰",
     followUpManager: "李辰",
+    sharedAdvisor: "徐晨",
     planner: "徐晨",
     course: "国际课程规划",
     serviceMode: "1 对 1",
@@ -576,8 +579,9 @@ const profiles: Record<string, RiskServiceProfile> = {
   },
   "risk-student-003": {
     grade: "10年级",
-    followUpAdvisor: "王珊",
+    currentFollowUpAdvisor: "王珊",
     followUpManager: "王珊",
+    sharedAdvisor: "李辰",
     planner: "李辰",
     course: "托福基础提升",
     serviceMode: "小班课",
@@ -586,8 +590,9 @@ const profiles: Record<string, RiskServiceProfile> = {
   },
   "risk-student-004": {
     grade: "9年级",
-    followUpAdvisor: "赵敏",
+    currentFollowUpAdvisor: "赵敏",
     followUpManager: "赵敏",
+    sharedAdvisor: "周欣",
     planner: "周欣",
     course: "学业能力提升",
     serviceMode: "1 对 1",
@@ -596,8 +601,9 @@ const profiles: Record<string, RiskServiceProfile> = {
   },
   "risk-student-005": {
     grade: "11年级",
-    followUpAdvisor: "孙超",
+    currentFollowUpAdvisor: "孙超",
     followUpManager: "孙超",
+    sharedAdvisor: "王珊",
     planner: "王珊",
     course: "雅思冲刺课程",
     serviceMode: "1 对 1",
@@ -606,8 +612,9 @@ const profiles: Record<string, RiskServiceProfile> = {
   },
   "risk-student-006": {
     grade: "10年级",
-    followUpAdvisor: "孟涵",
+    currentFollowUpAdvisor: "孟涵",
     followUpManager: "孟涵",
+    sharedAdvisor: "徐晨",
     planner: "徐晨",
     course: "国际课程衔接",
     serviceMode: "小班课",

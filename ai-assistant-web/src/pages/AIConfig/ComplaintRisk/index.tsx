@@ -2,7 +2,6 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
-  SaveOutlined,
 } from "@ant-design/icons";
 import {
   PageContainer,
@@ -13,6 +12,7 @@ import {
   Alert,
   Button,
   Card,
+  Drawer,
   Empty,
   Flex,
   Input,
@@ -131,6 +131,7 @@ export default function ComplaintRiskConfigPage() {
   const [config, setConfig] = useState<ComplaintRiskConfig | null>(null);
   const [riskTypes, setRiskTypes] = useState<ComplaintRiskTypeConfig[]>([]);
   const [summaryPromptDraft, setSummaryPromptDraft] = useState("");
+  const [summaryPromptEditorOpen, setSummaryPromptEditorOpen] = useState(false);
   const [savingSummaryPrompt, setSavingSummaryPrompt] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -145,7 +146,6 @@ export default function ComplaintRiskConfigPage() {
       const nextConfig = await aiConfigApi.getComplaintRiskConfig();
       setConfig(nextConfig);
       setRiskTypes(nextConfig.riskTypes);
-      setSummaryPromptDraft(nextConfig.summaryPrompt);
     } catch {
       setLoadError(true);
     } finally {
@@ -220,12 +220,25 @@ export default function ComplaintRiskConfigPage() {
         await aiConfigApi.updateComplaintRiskConfig(nextConfig);
       applyServerConfig(savedConfig);
       setSummaryPromptDraft(savedConfig.summaryPrompt);
+      setSummaryPromptEditorOpen(false);
       message.success("AI 总结提示词已更新并即时生效");
     } catch {
       message.error("AI 总结提示词更新失败，请重试");
     } finally {
       setSavingSummaryPrompt(false);
     }
+  }
+
+  function openSummaryPromptEditor() {
+    if (!config) return;
+    setSummaryPromptDraft(config.summaryPrompt);
+    setSummaryPromptEditorOpen(true);
+  }
+
+  function closeSummaryPromptEditor() {
+    if (savingSummaryPrompt) return;
+    setSummaryPromptDraft(config?.summaryPrompt ?? "");
+    setSummaryPromptEditorOpen(false);
   }
 
   function deleteRiskType(riskType: ComplaintRiskTypeConfig) {
@@ -436,36 +449,26 @@ export default function ComplaintRiskConfigPage() {
               children: (
                 <Card
                   title="系统提示词"
-                  className={styles.promptCard}
                   extra={
                     <Button
                       type="primary"
-                      icon={<SaveOutlined />}
-                      aria-label="保存提示词"
-                      loading={savingSummaryPrompt}
-                      disabled={
-                        savingSummaryPrompt ||
-                        normalizeSummaryPrompt(summaryPromptDraft) ===
-                          config.summaryPrompt
-                      }
-                      onClick={() => void saveSummaryPrompt()}
+                      icon={<EditOutlined />}
+                      aria-label="编辑 AI 总结提示词"
+                      onClick={openSummaryPromptEditor}
                     >
-                      保存提示词
+                      编辑
                     </Button>
                   }
                 >
-                  <Typography.Paragraph type="secondary">
+                  <Typography.Paragraph
+                    type="secondary"
+                    className={styles.promptDescription}
+                  >
                     用于控制客诉预警详情中“风险总结”的生成方式，保存后即时生效。
                   </Typography.Paragraph>
-                  <Input.TextArea
-                    aria-label="AI 总结提示词"
-                    value={summaryPromptDraft}
-                    autoSize={{ minRows: 6, maxRows: 12 }}
-                    placeholder="请输入 AI 生成客诉风险总结时使用的系统提示词"
-                    onChange={(event) =>
-                      setSummaryPromptDraft(event.target.value)
-                    }
-                  />
+                  <Typography.Paragraph className={styles.promptPreview}>
+                    {config.summaryPrompt}
+                  </Typography.Paragraph>
                 </Card>
               ),
             },
@@ -480,6 +483,51 @@ export default function ComplaintRiskConfigPage() {
         onClose={() => setEditorOpen(false)}
         onSave={saveRiskType}
       />
+
+      <Drawer
+        title="编辑 AI 总结提示词"
+        open={summaryPromptEditorOpen}
+        size="large"
+        destroyOnHidden
+        onClose={savingSummaryPrompt ? undefined : closeSummaryPromptEditor}
+        footer={
+          <Flex justify="end">
+            <Space>
+              <Button
+                disabled={savingSummaryPrompt}
+                onClick={closeSummaryPromptEditor}
+              >
+                取消
+              </Button>
+              <Button
+                type="primary"
+                loading={savingSummaryPrompt}
+                disabled={
+                  savingSummaryPrompt ||
+                  normalizeSummaryPrompt(summaryPromptDraft) ===
+                    config.summaryPrompt
+                }
+                onClick={() => void saveSummaryPrompt()}
+              >
+                保存
+              </Button>
+            </Space>
+          </Flex>
+        }
+      >
+        <Flex vertical gap="small">
+          <Typography.Text type="secondary">
+            该提示词仅用于客诉预警详情中的“风险总结”，保存后即时生效。
+          </Typography.Text>
+          <Input.TextArea
+            aria-label="AI 总结提示词"
+            value={summaryPromptDraft}
+            autoSize={{ minRows: 8, maxRows: 16 }}
+            placeholder="请输入 AI 生成客诉风险总结时使用的系统提示词"
+            onChange={(event) => setSummaryPromptDraft(event.target.value)}
+          />
+        </Flex>
+      </Drawer>
     </PageContainer>
   );
 }

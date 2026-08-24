@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#132025" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ec684f'/%3E%3Cpath d='M9 22 23 8M14 8h9v9' stroke='%23132025' stroke-width='3' fill='none'/%3E%3C/svg%3E" />
+    <title>AI 客诉预警 · 风控工作台</title>
+    <style>
+      :root {
+        --ink: #182428;
+        --muted: #7c8785;
+        --paper: #f4f0e8;
+        --paper-deep: #e8e2d8;
+        --line: rgba(24, 36, 40, 0.12);
+        --rail: #132025;
+        --rail-soft: #1d3035;
+        --cream: #fbf8f1;
+        --coral: #ec684f;
+        --coral-dark: #b74738;
+        --amber: #d68a3e;
+        --sage: #5d8471;
+        --blue: #5e86a1;
+        --shadow: 0 24px 70px rgba(29, 39, 36, 0.12);
+        --radius-lg: 24px;
+        --radius-md: 16px;
+        --radius-sm: 10px;
+      }
+
+      * { box-sizing: border-box; }
+      html { min-width: 320px; background: var(--paper); }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 72% -12%, rgba(242, 183, 122, 0.22), transparent 32rem),
+          radial-gradient(circle at 10% 86%, rgba(104, 145, 130, 0.13), transparent 30rem),
+          var(--paper);
+        font-family: "Avenir Next", "PingFang SC", "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button, input { font: inherit; }
+      button { cursor: pointer; }
+
+      .app {
+        display: grid;
+        grid-template-columns: 236px minmax(620px, 1fr) 356px;
+        grid-template-rows: auto 1fr;
+        max-width: 1680px;
+        min-height: 100vh;
+        margin: 0 auto;
+        background: rgba(251, 248, 241, 0.42);
+        box-shadow: var(--shadow);
+      }
+
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 28px 18px 22px;
+        color: #e7eeeb;
+        background: var(--rail);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .rail::after {
+        content: "";
+        position: absolute;
+        width: 180px;
+        height: 180px;
+        right: -90px;
+        bottom: 60px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        box-shadow: 0 0 0 24px rgba(255, 255, 255, 0.025), 0 0 0 48px rgba(255, 255, 255, 0.018);
+      }
+
+      .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 54px; }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        color: var(--rail);
+        background: var(--coral);
+        border-radius: 10px 10px 10px 3px;
+        font-weight: 900;
+        letter-spacing: -0.08em;
+      }
+      .brand-name { line-height: 1.02; letter-spacing: 0.08em; font-size: 12px; font-weight: 800; }
+      .brand-name small { display: block; color: #8ca09c; margin-top: 5px; letter-spacing: 0.03em; font-size: 10px; font-weight: 500; }
+
+      .rail-label { margin: 0 12px 12px; color: #718783; font-size: 10px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; }
+      .nav { display: grid; gap: 6px; }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        width: 100%;
+        padding: 12px 13px;
+        border: 0;
+        border-radius: 11px;
+        color: #a9b9b5;
+        background: transparent;
+        text-align: left;
+        transition: 180ms ease;
+      }
+      .nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+      .nav-item.active { color: #f8f6ed; background: var(--rail-soft); box-shadow: inset 3px 0 0 var(--coral); }
+      .nav-icon { width: 20px; color: #71918c; text-align: center; font-size: 16px; }
+      .nav-item.active .nav-icon { color: var(--coral); }
+      .nav-item span:last-child { font-size: 13px; font-weight: 650; }
+      .nav-count { margin-left: auto; color: #78918c; font-size: 11px; }
+
+      .rail-spacer { flex: 1; }
+      .rail-status {
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+      .status-line { display: flex; align-items: center; gap: 7px; color: #c3d1cc; font-size: 11px; font-weight: 650; }
+      .pulse { width: 7px; height: 7px; border-radius: 50%; background: #80ba88; box-shadow: 0 0 0 5px rgba(128, 186, 136, 0.13); }
+      .rail-status p { margin: 10px 0 0; color: #728782; font-size: 10px; line-height: 1.55; }
+
+      .topbar {
+        grid-column: 2 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        min-height: 76px;
+        padding: 0 32px;
+        border-bottom: 1px solid var(--line);
+      }
+      .breadcrumb { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+      .breadcrumb strong { color: var(--ink); font-weight: 750; }
+      .top-actions { display: flex; align-items: center; gap: 10px; }
+      .date-chip, .icon-btn, .user-chip { border: 1px solid var(--line); background: rgba(255,255,255,0.38); }
+      .date-chip { padding: 8px 11px; border-radius: 9px; color: var(--muted); font-size: 11px; }
+      .icon-btn { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; color: var(--ink); }
+      .icon-btn:hover { background: var(--cream); }
+      .user-chip { display: flex; align-items: center; gap: 9px; padding: 4px 9px 4px 4px; border-radius: 20px; color: var(--ink); font-size: 11px; font-weight: 700; }
+      .avatar { display: grid; place-items: center; width: 26px; height: 26px; color: #f7f4ec; background: var(--blue); border-radius: 50%; font-size: 11px; }
+
+      .workspace { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 356px; min-width: 0; }
+      .main-column { min-width: 0; padding: 34px 32px 48px; }
+      .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; margin-bottom: 30px; }
+      .eyebrow { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--coral-dark); font-size: 10px; font-weight: 850; letter-spacing: 0.18em; text-transform: uppercase; }
+      .eyebrow::before { content: ""; display: block; width: 22px; height: 2px; background: var(--coral); }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { max-width: 610px; margin-bottom: 10px; font-family: "Iowan Old Style", "Baskerville", "Songti SC", serif; font-size: clamp(34px, 3.5vw, 54px); font-weight: 500; line-height: 1.04; letter-spacing: -0.045em; }
+      .hero-copy { max-width: 560px; margin-bottom: 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+      .hero-stamp { flex: 0 0 auto; display: grid; place-items: center; width: 102px; height: 102px; border: 1px solid rgba(236, 104, 79, 0.35); border-radius: 50%; transform: rotate(-8deg); }
+      .hero-stamp span { display: block; color: var(--coral-dark); font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-align: center; line-height: 1.55; }
+      .hero-stamp strong { display: block; font-family: "Iowan Old Style", serif; font-size: 28px; font-weight: 500; letter-spacing: -0.08em; }
+
+      .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 28px; }
+      .metric { position: relative; min-height: 104px; padding: 16px 17px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 255, 255, 0.38); overflow: hidden; }
+      .metric::after { content: ""; position: absolute; width: 90px; height: 90px; right: -30px; bottom: -45px; border: 1px solid rgba(236,104,79,0.22); border-radius: 50%; }
+      .metric-label { color: var(--muted); font-size: 11px; }
+      .metric-value { display: flex; align-items: baseline; gap: 7px; margin-top: 9px; font-family: "Iowan Old Style", serif; font-size: 36px; line-height: 1; letter-spacing: -0.08em; }
+      .metric-value small { color: var(--muted); font-family: inherit; font-size: 12px; letter-spacing: 0; }
+      .metric-note { position: absolute; right: 15px; top: 18px; color: var(--sage); font-size: 10px; font-weight: 800; }
+      .metric:nth-child(2) .metric-note { color: var(--coral-dark); }
+      .metric:nth-child(3) .metric-note { color: var(--amber); }
+
+      .queue-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 13px; }
+      .section-kicker { margin-bottom: 6px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+      h2 { margin-bottom: 0; font-family: "Iowan Old Style", "Baskerville", serif; font-size: 25px; font-weight: 500; letter-spacing: -0.035em; }
+      .queue-meta { color: var(--muted); font-size: 11px; }
+      .filters { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 6px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,0.3); }
+      .tab { flex: 0 0 auto; padding: 9px 13px; border: 0; border-radius: 8px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; transition: 180ms ease; }
+      .tab:hover { color: var(--ink); background: rgba(24,36,40,0.05); }
+      .tab.active { color: var(--ink); background: var(--cream); box-shadow: 0 4px 14px rgba(24,36,40,0.08); }
+      .tab .count { margin-left: 4px; color: var(--coral-dark); font-size: 10px; }
+      .filter-divider { width: 1px; height: 22px; margin: 0 2px; background: var(--line); }
+      .search { display: flex; align-items: center; gap: 8px; min-width: 130px; margin-left: auto; padding: 0 9px; color: var(--muted); }
+      .search input { width: 100%; min-width: 0; padding: 8px 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
+      .search input::placeholder { color: #9ba29d; }
+      .priority { display: flex; align-items: center; gap: 5px; padding-right: 7px; }
+      .priority button { padding: 6px 7px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 10px; }
+      .priority button.active { color: var(--ink); background: var(--paper-deep); }
+
+      .case-list { display: grid; gap: 10px; }
+      .case-card { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; padding: 15px 16px 15px 13px; border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--ink); background: rgba(255,255,255,0.31); text-align: left; transition: 180ms ease; animation: rise 500ms both; animation-delay: calc(var(--i) * 45ms); }
+      .case-card:hover { border-color: rgba(236,104,79,0.44); background: var(--cream); transform: translateX(3px); }
+      .case-card.selected { border-color: var(--coral); background: var(--cream); box-shadow: 0 9px 24px rgba(236,104,79,0.11); }
+      .case-number { display: grid; place-items: center; width: 43px; height: 43px; border: 1px solid var(--line); border-radius: 13px; color: var(--muted); font-family: "Iowan Old Style", serif; font-size: 18px; }
+      .case-card.selected .case-number { color: var(--cream); border-color: var(--coral); background: var(--coral); }
+      .case-main { min-width: 0; }
+      .case-name { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 14px; font-weight: 800; }
+      .case-id { color: var(--muted); font-size: 10px; font-weight: 500; }
+      .case-preview { max-width: 480px; overflow: hidden; color: var(--muted); font-size: 11px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+      .case-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+      .tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border-radius: 5px; color: var(--muted); background: var(--paper-deep); font-size: 9px; font-weight: 700; }
+      .tag.high { color: var(--coral-dark); background: #f9ded6; }
+      .tag.medium { color: #9a6729; background: #f7e8cb; }
+      .tag.closed { color: var(--sage); background: #dbe9df; }
+      .case-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+      .severity { display: flex; align-items: center; gap: 5px; color: var(--coral-dark); font-size: 10px; font-weight: 800; }
+      .severity.medium { color: #a26d2a; }
+      .severity.low { color: var(--sage); }
+      .severity-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 14%, transparent); }
+      .case-time { color: #9aa19b; font-size: 10px; white-space: nowrap; }
+      .empty { padding: 50px 20px; border: 1px dashed var(--line); border-radius: var(--radius-md); color: var(--muted); text-align: center; font-size: 12px; }
+
+      .detail-column { min-width: 0; padding: 30px 25px 42px; border-left: 1px solid var(--line); background: rgba(255,255,255,0.25); }
+      .detail-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 27px; }
+      .detail-top h2 { font-size: 30px; }
+      .detail-sub { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
+      .detail-badge { padding: 7px 9px; border-radius: 7px; color: var(--coral-dark); background: #f9ded6; font-size: 10px; font-weight: 800; white-space: nowrap; }
+      .detail-badge.closed { color: var(--sage); background: #dbe9df; }
+      .quote { position: relative; margin-bottom: 22px; padding: 18px 17px 17px 20px; border-radius: var(--radius-md); color: #45504e; background: #ebe7dd; font-family: "Iowan Old Style", "Songti SC", serif; font-size: 15px; line-height: 1.6; }
+      .quote::before { content: "“"; position: absolute; top: -9px; left: 12px; color: var(--coral); font-family: Georgia, serif; font-size: 48px; line-height: 1; }
+      .quote small { display: block; margin-top: 9px; color: var(--muted); font-family: "Avenir Next", "PingFang SC", sans-serif; font-size: 10px; }
+      .detail-section { margin-top: 25px; }
+      .detail-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+      .detail-label span:last-child { color: var(--ink); font-size: 10px; letter-spacing: 0; text-transform: none; }
+      .risk-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+      .risk-index { color: var(--muted); font-family: "Iowan Old Style", serif; font-size: 15px; }
+      .risk-name { font-size: 12px; font-weight: 800; }
+      .risk-info { margin-top: 4px; color: var(--muted); font-size: 10px; }
+      .risk-status { padding: 4px 6px; border-radius: 5px; color: var(--coral-dark); background: #f9ded6; font-size: 9px; font-weight: 800; }
+      .risk-status.done { color: var(--sage); background: #dbe9df; }
+      .timeline { position: relative; display: grid; gap: 15px; padding-left: 15px; }
+      .timeline::before { content: ""; position: absolute; top: 7px; bottom: 7px; left: 3px; width: 1px; background: var(--line); }
+      .timeline-item { position: relative; }
+      .timeline-item::before { content: ""; position: absolute; top: 4px; left: -15px; width: 7px; height: 7px; border: 2px solid var(--paper); border-radius: 50%; background: var(--coral); box-shadow: 0 0 0 1px var(--coral); }
+      .timeline-item.done::before { background: var(--sage); box-shadow: 0 0 0 1px var(--sage); }
+      .timeline-time { color: var(--muted); font-size: 9px; }
+      .timeline-copy { margin-top: 4px; font-size: 11px; line-height: 1.45; }
+      .timeline-copy strong { font-weight: 800; }
+      .detail-actions { display: grid; gap: 8px; margin-top: 28px; }
+      .action-primary, .action-secondary { width: 100%; padding: 12px 14px; border-radius: 9px; font-size: 11px; font-weight: 800; transition: 180ms ease; }
+      .action-primary { border: 1px solid var(--coral); color: var(--cream); background: var(--coral); box-shadow: 0 8px 18px rgba(236,104,79,0.2); }
+      .action-primary:hover { background: var(--coral-dark); transform: translateY(-1px); }
+      .action-primary:disabled { cursor: default; opacity: 0.45; box-shadow: none; transform: none; }
+      .action-secondary { border: 1px solid var(--line); color: var(--ink); background: transparent; }
+      .action-secondary:hover { border-color: rgba(24,36,40,0.3); background: var(--cream); }
+      .fine-print { margin: 16px 2px 0; color: var(--muted); font-size: 9px; line-height: 1.55; text-align: center; }
+
+      .toast { position: fixed; z-index: 20; right: 24px; bottom: 24px; max-width: 300px; padding: 13px 16px; border: 1px solid rgba(93,132,113,0.25); border-radius: 10px; color: #315840; background: #e5f0e7; box-shadow: 0 12px 30px rgba(24,36,40,0.15); font-size: 11px; font-weight: 700; opacity: 0; transform: translateY(12px); pointer-events: none; transition: 220ms ease; }
+      .toast.show { opacity: 1; transform: translateY(0); }
+      .reveal { animation: rise 550ms both; }
+      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+      @media (max-width: 1220px) {
+        .app { grid-template-columns: 206px minmax(560px, 1fr) 320px; }
+        .main-column { padding-inline: 24px; }
+        .topbar { padding-inline: 24px; }
+        .detail-column { padding-inline: 20px; }
+        .hero-stamp { width: 82px; height: 82px; }
+      }
+      @media (max-width: 1000px) {
+        .app { display: block; }
+        .rail { display: none; }
+        .topbar { min-height: 66px; padding-inline: 20px; }
+        .workspace { display: block; }
+        .main-column { padding: 26px 20px 35px; }
+        .detail-column { border-top: 1px solid var(--line); border-left: 0; padding: 27px 20px 38px; }
+        .detail-column { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr); gap: 24px; }
+        .detail-top, .quote, .detail-section:last-of-type, .detail-actions, .fine-print { grid-column: 1 / -1; }
+        .detail-top { margin-bottom: 0; }
+      }
+      @media (max-width: 680px) {
+        .topbar { padding-inline: 14px; }
+        .breadcrumb span { display: none; }
+        .date-chip { display: none; }
+        .main-column { padding: 23px 14px 30px; }
+        .hero { display: block; }
+        .hero-stamp { display: none; }
+        h1 { font-size: 37px; }
+        .metrics { gap: 7px; }
+        .metric { min-height: 88px; padding: 12px; }
+        .metric-value { margin-top: 7px; font-size: 28px; }
+        .metric-note { display: none; }
+        .queue-head { align-items: start; display: block; }
+        .queue-meta { display: block; margin-top: 8px; }
+        .filters { flex-wrap: wrap; }
+        .search { flex-basis: 100%; order: 3; margin-left: 0; border-top: 1px solid var(--line); }
+        .filter-divider { display: none; }
+        .priority { margin-left: auto; }
+        .case-card { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; padding: 13px 12px; }
+        .case-number { width: 36px; height: 36px; font-size: 15px; border-radius: 10px; }
+        .case-side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
+        .detail-column { display: block; padding: 25px 14px 32px; }
+        .detail-top { margin-bottom: 22px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail">
+        <div class="brand">
+          <div class="brand-mark">↗</div>
+          <div class="brand-name">SCOPE<small>学情风控工作台</small></div>
+        </div>
+
+        <p class="rail-label">工作台</p>
+        <nav class="nav" aria-label="主导航">
+          <button class="nav-item" type="button"><span class="nav-icon">⌂</span><span>总览</span></button>
+          <button class="nav-item active" type="button"><span class="nav-icon">◉</span><span>AI 客诉预警</span><span class="nav-count">06</span></button>
+          <button class="nav-item" type="button"><span class="nav-icon">↗</span><span>员工风险</span></button>
+          <button class="nav-item" type="button"><span class="nav-icon">◇</span><span>续费机会</span></button>
+        </nav>
+
+        <p class="rail-label" style="margin-top: 34px">工具</p>
+        <nav class="nav" aria-label="工具导航">
+          <button class="nav-item" type="button"><span class="nav-icon">⚙</span><span>预警配置</span></button>
+          <button class="nav-item" type="button"><span class="nav-icon">?</span><span>使用帮助</span></button>
+        </nav>
+
+        <div class="rail-spacer"></div>
+        <div class="rail-status">
+          <div class="status-line"><span class="pulse"></span> 监测引擎运行中</div>
+          <p>最近一次同步<br /><strong>今天 09:42 · 企微消息</strong></p>
+        </div>
+      </aside>
+
+      <header class="topbar">
+        <div class="breadcrumb"><span>AI 质检</span><b>›</b><strong>AI 客诉预警</strong></div>
+        <div class="top-actions">
+          <div class="date-chip">2026 / 08 / 21 · 周四</div>
+          <button class="icon-btn" type="button" aria-label="通知">♧</button>
+          <button class="user-chip" type="button"><span class="avatar">周</span>周欣⌄</button>
+        </div>
+      </header>
+
+      <div class="workspace">
+        <main class="main-column">
+          <section class="hero reveal">
+            <div>
+              <div class="eyebrow">AI complaint watch · live desk</div>
+              <h1>把风险，变成<br /><em>可执行的下一步。</em></h1>
+              <p class="hero-copy">从消息里的情绪波动，到需要谁在什么时候跟进——这里是学管团队的风险分诊台。先判断，再行动。</p>
+            </div>
+            <div class="hero-stamp"><span><strong>24h</strong>未读风险<br />需要你的判断</span></div>
+          </section>
+
+          <section class="metrics reveal" aria-label="风险概览">
+            <div class="metric"><div class="metric-label">监测中的风险学生</div><div class="metric-value"><span id="allCount">06</span><small>人</small></div><div class="metric-note">全部队列</div></div>
+            <div class="metric"><div class="metric-label">待处理</div><div class="metric-value"><span id="pendingCount">05</span><small>人</small></div><div class="metric-note">需要跟进</div></div>
+            <div class="metric"><div class="metric-label">今日已闭环</div><div class="metric-value"><span id="closedCount">01</span><small>人</small></div><div class="metric-note">+1 今日</div></div>
+          </section>
+
+          <section class="queue reveal" aria-labelledby="queueTitle">
+            <div class="queue-head">
+              <div><div class="section-kicker">Priority inbox</div><h2 id="queueTitle">风险学生队列</h2></div>
+              <div class="queue-meta" id="queueMeta">按风险等级优先 · 共 5 位待处理</div>
+            </div>
+
+            <div class="filters" role="toolbar" aria-label="风险学生筛选">
+              <button class="tab" data-tab="all" type="button">全部 <span class="count" data-count="all">06</span></button>
+              <button class="tab active" data-tab="pending" type="button">待处理 <span class="count" data-count="pending">05</span></button>
+              <button class="tab" data-tab="closed" type="button">已处理 <span class="count" data-count="closed">01</span></button>
+              <span class="filter-divider"></span>
+              <div class="priority" aria-label="风险等级">
+                <button class="active" data-priority="all" type="button">全部</button>
+                <button data-priority="high" type="button">高</button>
+                <button data-priority="medium" type="button">中</button>
+              </div>
+              <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜索姓名 / 编号" /></label>
+            </div>
+            <div class="case-list" id="caseList"></div>
+          </section>
+        </main>
+
+        <aside class="detail-column" aria-label="风险详情">
+          <div class="detail-top">
+            <div><div class="section-kicker">Case brief / 01</div><h2 id="detailName">林家宁</h2><p class="detail-sub" id="detailId">S2026001 · 12 年级 · 周欣负责</p></div>
+            <div class="detail-badge" id="detailBadge">待处理</div>
+          </div>
+          <div class="quote" id="detailQuote">家长连续反馈找不到负责人、联系不上，且未按约定收到反馈。<small id="detailQuoteMeta">来自企微群聊 · 08月09日 18:24</small></div>
+
+          <section class="detail-section">
+            <div class="detail-label"><span>命中风险</span><span id="riskCount">4 个事件</span></div>
+            <div id="riskRows"></div>
+          </section>
+
+          <section class="detail-section">
+            <div class="detail-label"><span>处理轨迹</span><span>最近 7 天</span></div>
+            <div class="timeline" id="timeline"></div>
+          </section>
+
+          <div class="detail-actions">
+            <button class="action-primary" id="handleBtn" type="button">标记为已处理</button>
+            <button class="action-secondary" id="draftBtn" type="button">生成一版沟通草稿 ↗</button>
+          </div>
+          <p class="fine-print">处理后会同步更新学生队列，并保留原始消息证据。</p>
+        </aside>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+
+    <script>
+      const students = [
+        { id: "lin", name: "林家宁", number: "S2026001", owner: "周欣", grade: "12 年级", level: "high", status: "pending", time: "18:24", quote: "家长连续反馈找不到负责人、联系不上，且未按约定收到反馈。", source: "企微群聊", date: "08月09日", risks: [["跟进及时性", "找不到人 · 联系不上", "high"], ["退费", "退了 · 什么时候到账", "high"], ["客诉", "不满意 · 换老师", "medium"], ["跟进及时性", "未反馈", "medium"]], timeline: [["今天 09:42", "AI 识别到新的跟进及时性风险", "new"], ["昨天 18:24", "家长在群聊中连续追问负责人", "new"], ["08月07日", "上次处理：周欣已回复家长", "done"]] },
+        { id: "chen", name: "陈子轩", number: "S2026002", owner: "钱悦", grade: "11 年级", level: "high", status: "pending", time: "16:08", quote: "退费金额和剩余课时一直没有明确回复，希望今天给个结果。", source: "企微单聊", date: "08月10日", risks: [["退费", "退费 · 还剩多少课时", "high"], ["跟进及时性", "没有明确反馈", "high"], ["客诉", "不满意", "medium"]], timeline: [["今天 08:12", "AI 识别到退费风险升级", "new"], ["08月10日", "家长发起二次追问", "new"], ["08月08日", "订单信息已同步给负责人", "done"]] },
+        { id: "zhou", name: "周沐阳", number: "S2026003", owner: "周欣", grade: "10 年级", level: "medium", status: "pending", time: "昨天", quote: "孩子最近状态不太对，老师答应反馈但一直没消息。", source: "企微单聊", date: "08月11日", risks: [["跟进及时性", "未反馈 · 没回复", "medium"]], timeline: [["昨天 16:30", "AI 识别到跟进及时性风险", "new"], ["08月09日", "老师承诺周一同步学习情况", "done"]] },
+        { id: "gao", name: "高亦辰", number: "S2026005", owner: "钱悦", grade: "9 年级", level: "medium", status: "pending", time: "08月10日", quote: "已经换过一次老师了，还是觉得不合适，想了解后续怎么处理。", source: "企微群聊", date: "08月10日", risks: [["客诉", "换老师 · 风格不合适", "medium"], ["跟进及时性", "未反馈", "medium"], ["客诉", "不满意", "medium"]], timeline: [["08月10日", "AI 识别到客诉风险", "new"], ["08月09日", "已创建换师评估任务", "done"]] },
+        { id: "wu", name: "吴知夏", number: "S2026006", owner: "周欣", grade: "8 年级", level: "medium", status: "pending", time: "08月09日", quote: "想问一下上次说的课程调整，现在有确定的安排了吗？", source: "企微单聊", date: "08月09日", risks: [["跟进及时性", "课程调整未反馈", "medium"], ["客诉", "不满意", "medium"]], timeline: [["08月09日", "AI 识别到跟进及时性风险", "new"], ["08月06日", "已提醒负责人主动同步", "done"]] },
+        { id: "shen", name: "沈雨桐", number: "S2026007", owner: "钱悦", grade: "9 年级", level: "low", status: "closed", time: "08月07日", quote: "上次的课程节奏问题已经解释清楚了，后面继续观察就好。", source: "企微群聊", date: "08月07日", risks: [["客诉", "课堂节奏 · 已解决", "low"]], timeline: [["08月07日", "周欣完成沟通，家长确认问题解决", "done"], ["08月06日", "AI 识别到低风险客诉", "new"]] }
+      ];
+
+      let activeTab = "pending";
+      let activePriority = "all";
+      let activeId = "lin";
+      let toastTimer;
+
+      const $ = (selector) => document.querySelector(selector);
+      const countBy = (status) => students.filter((student) => status === "all" ? true : student.status === status).length;
+      const levelLabel = { high: "高风险", medium: "中风险", low: "低风险" };
+
+      function updateCounts() {
+        const counts = { all: countBy("all"), pending: countBy("pending"), closed: countBy("closed") };
+        Object.entries(counts).forEach(([key, count]) => {
+          const node = document.querySelector(`[data-count="${key}"]`);
+          if (node) node.textContent = String(count).padStart(2, "0");
+        });
+        $("#allCount").textContent = String(counts.all).padStart(2, "0");
+        $("#pendingCount").textContent = String(counts.pending).padStart(2, "0");
+        $("#closedCount").textContent = String(counts.closed).padStart(2, "0");
+      }
+
+      function visibleStudents() {
+        const keyword = $("#searchInput").value.trim().toLowerCase();
+        return students.filter((student) => {
+          const tabMatch = activeTab === "all" || student.status === activeTab;
+          const priorityMatch = activePriority === "all" || student.level === activePriority;
+          const keywordMatch = !keyword || `${student.name}${student.number}${student.owner}`.toLowerCase().includes(keyword);
+          return tabMatch && priorityMatch && keywordMatch;
+        });
+      }
+
+      function renderList() {
+        const list = $("#caseList");
+        const items = visibleStudents();
+        $("#queueMeta").textContent = activeTab === "pending" ? `按风险等级优先 · 共 ${countBy("pending")} 位待处理` : `当前筛选 · 共 ${items.length} 位学生`;
+        if (!items.length) {
+          list.innerHTML = '<div class="empty">没有匹配的学生，换一个筛选条件试试。</div>';
+          return;
+        }
+        list.innerHTML = items.map((student, index) => `
+          <button class="case-card ${student.id === activeId ? "selected" : ""}" style="--i:${index}" data-id="${student.id}" type="button">
+            <span class="case-number">${String(index + 1).padStart(2, "0")}</span>
+            <span class="case-main">
+              <span class="case-name">${student.name}<span class="case-id">${student.number}</span></span>
+              <span class="case-preview">${student.quote}</span>
+              <span class="case-tags">
+                <span class="tag ${student.status === "closed" ? "closed" : student.level}">${student.status === "closed" ? "已处理" : `待处理 ${student.risks.length} 项`}</span>
+                <span class="tag">${student.owner} · ${student.grade}</span>
+              </span>
+            </span>
+            <span class="case-side"><span class="severity ${student.level}"><i class="severity-dot"></i>${levelLabel[student.level]}</span><span class="case-time">${student.time}</span></span>
+          </button>
+        `).join("");
+        list.querySelectorAll("[data-id]").forEach((card) => card.addEventListener("click", () => { activeId = card.dataset.id; renderList(); renderDetail(); }));
+      }
+
+      function renderDetail() {
+        const student = students.find((item) => item.id === activeId) || students[0];
+        $("#detailName").textContent = student.name;
+        $("#detailId").textContent = `${student.number} · ${student.grade} · ${student.owner}负责`;
+        $("#detailBadge").textContent = student.status === "closed" ? "已处理" : "待处理";
+        $("#detailBadge").classList.toggle("closed", student.status === "closed");
+        $("#detailQuote").firstChild.textContent = student.quote;
+        $("#detailQuoteMeta").textContent = `来自${student.source} · ${student.date} ${student.time}`;
+        $("#riskCount").textContent = `${student.risks.length} 个事件`;
+        $("#riskRows").innerHTML = student.risks.map((risk, index) => `<div class="risk-row"><span class="risk-index">0${index + 1}</span><div><div class="risk-name">${risk[0]}</div><div class="risk-info">${risk[1]}</div></div><span class="risk-status ${student.status === "closed" ? "done" : ""}">${student.status === "closed" ? "已闭环" : "待处理"}</span></div>`).join("");
+        $("#timeline").innerHTML = student.timeline.map((item) => `<div class="timeline-item ${item[2] === "done" ? "done" : ""}"><div class="timeline-time">${item[0]}</div><div class="timeline-copy">${item[1]}</div></div>`).join("");
+        $("#handleBtn").disabled = student.status === "closed";
+        $("#handleBtn").textContent = student.status === "closed" ? "已完成处理" : "标记为已处理";
+      }
+
+      function showToast(message) {
+        const toast = $("#toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+      }
+
+      document.querySelectorAll("[data-tab]").forEach((button) => button.addEventListener("click", () => {
+        activeTab = button.dataset.tab;
+        document.querySelectorAll("[data-tab]").forEach((item) => item.classList.toggle("active", item === button));
+        renderList();
+      }));
+      document.querySelectorAll("[data-priority]").forEach((button) => button.addEventListener("click", () => {
+        activePriority = button.dataset.priority;
+        document.querySelectorAll("[data-priority]").forEach((item) => item.classList.toggle("active", item === button));
+        renderList();
+      }));
+      $("#searchInput").addEventListener("input", renderList);
+      $("#handleBtn").addEventListener("click", () => {
+        const student = students.find((item) => item.id === activeId);
+        if (!student || student.status === "closed") return;
+        student.status = "closed";
+        showToast(`${student.name} 已标记为已处理，队列已同步更新`);
+        updateCounts();
+        renderList();
+        renderDetail();
+      });
+      $("#draftBtn").addEventListener("click", () => {
+        const student = students.find((item) => item.id === activeId);
+        showToast(`已为 ${student.name} 生成一版沟通草稿`);
+      });
+
+      updateCounts();
+      renderList();
+      renderDetail();
+    </script>
+  </body>
+</html>

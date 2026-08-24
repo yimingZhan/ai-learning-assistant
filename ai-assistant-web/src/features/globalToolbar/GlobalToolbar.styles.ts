@@ -95,16 +95,6 @@ export const useGlobalToolbarStyles = createStyles(({ css, token }) => ({
       padding-inline: 0;
     }
   `,
-  activeAction: css`
-    color: ${token.colorPrimary};
-    background: ${token.colorPrimaryBg};
-
-    &:hover,
-    &:focus-visible {
-      color: ${token.colorPrimaryHover} !important;
-      background: ${token.colorPrimaryBgHover} !important;
-    }
-  `,
   actionLabel: css`
     @media (max-width: 1199px) {
       display: none;

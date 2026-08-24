@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
@@ -273,13 +273,25 @@ describe("ComplaintRiskConfigPage", () => {
       }),
     );
 
-    const promptInput = (await screen.findByRole("textbox", {
-      name: "AI 总结提示词",
-    })) as HTMLTextAreaElement;
-    const saveButton = screen.getByRole("button", { name: "保存提示词" });
-    expect(promptInput.value).toBe(
-      createInitialComplaintRiskConfig().summaryPrompt,
+    const initialPrompt = createInitialComplaintRiskConfig().summaryPrompt;
+    expect(await screen.findByText(initialPrompt)).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "AI 总结提示词" })).toBeNull();
+
+    await user.click(
+      screen.getByRole("button", { name: "编辑 AI 总结提示词" }),
     );
+
+    const editor = screen.getByRole("dialog", {
+      name: "编辑 AI 总结提示词",
+    });
+    expect(editor.className).toContain("ant-drawer-section");
+    const promptInput = within(editor).getByRole("textbox", {
+      name: "AI 总结提示词",
+    }) as HTMLTextAreaElement;
+    const saveButton = within(editor).getByRole("button", {
+      name: /保\s*存/,
+    });
+    expect(promptInput.value).toBe(initialPrompt);
     expect(saveButton.hasAttribute("disabled")).toBe(true);
 
     await user.clear(promptInput);
@@ -287,27 +299,15 @@ describe("ComplaintRiskConfigPage", () => {
     expect(await screen.findByText("AI 总结提示词不能为空")).toBeTruthy();
 
     await user.type(promptInput, "  只总结当前仍待处理的风险。  ");
-    await user.click(
-      screen.getByText("风险类型配置", { selector: ".ant-tabs-tab-btn" }),
-    );
-    await user.click(
-      screen.getByText("AI 总结提示词", {
-        selector: ".ant-tabs-tab-btn",
-      }),
-    );
-    const restoredPromptInput = screen.getByRole("textbox", {
-      name: "AI 总结提示词",
-    }) as HTMLTextAreaElement;
-    const restoredSaveButton = screen.getByRole("button", {
-      name: "保存提示词",
-    });
-    expect(restoredPromptInput.value).toBe("  只总结当前仍待处理的风险。  ");
-    await user.click(restoredSaveButton);
+    await user.click(saveButton);
     expect(
       await screen.findByText("AI 总结提示词已更新并即时生效"),
     ).toBeTruthy();
-    expect(restoredPromptInput.value).toBe("只总结当前仍待处理的风险。");
-    expect(restoredSaveButton.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen.getByText("只总结当前仍待处理的风险。", {
+        selector: ".ant-typography",
+      }),
+    ).toBeTruthy();
 
     const activeConfig = await aiConfigApi.getComplaintRiskConfig();
     expect(activeConfig.summaryPrompt).toBe("只总结当前仍待处理的风险。");
@@ -328,17 +328,28 @@ describe("ComplaintRiskConfigPage", () => {
         selector: ".ant-tabs-tab-btn",
       }),
     );
+    await user.click(
+      screen.getByRole("button", { name: "编辑 AI 总结提示词" }),
+    );
 
-    const promptInput = (await screen.findByRole("textbox", {
+    const editor = screen.getByRole("dialog", {
+      name: "编辑 AI 总结提示词",
+    });
+    const promptInput = within(editor).getByRole("textbox", {
       name: "AI 总结提示词",
-    })) as HTMLTextAreaElement;
+    }) as HTMLTextAreaElement;
     await user.clear(promptInput);
     await user.type(promptInput, "保存失败后仍保留的提示词");
-    await user.click(screen.getByRole("button", { name: "保存提示词" }));
+    await user.click(
+      within(editor).getByRole("button", { name: /保\s*存/ }),
+    );
 
     expect(
       await screen.findByText("AI 总结提示词更新失败，请重试"),
     ).toBeTruthy();
     expect(promptInput.value).toBe("保存失败后仍保留的提示词");
+    expect(
+      screen.getByRole("dialog", { name: "编辑 AI 总结提示词" }),
+    ).toBeTruthy();
   });
 });

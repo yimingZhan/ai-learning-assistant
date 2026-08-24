@@ -122,7 +122,6 @@ function flattenRiskEvents(detail: RiskStudentDetail) {
 
 function SummarySection({ detail }: { detail: RiskStudentDetail }) {
   const { styles } = useStudentRiskDetailStyles();
-  const studentRiskMeta = riskLevelMeta[detail.student.riskLevel];
 
   return (
     <section aria-label="学生风险摘要" className={styles.summarySection}>
@@ -141,9 +140,6 @@ function SummarySection({ detail }: { detail: RiskStudentDetail }) {
             {detail.student.studentNumber}
           </Text>
         </div>
-        <Tag className={styles.overallRiskTag} color={studentRiskMeta.color}>
-          {studentRiskMeta.fullLabel}
-        </Tag>
       </Flex>
 
       <Descriptions
@@ -167,14 +163,19 @@ function SummarySection({ detail }: { detail: RiskStudentDetail }) {
             children: detail.serviceProfile.planner,
           },
           {
-            key: "followUpAdvisor",
-            label: "跟进顾问",
-            children: detail.serviceProfile.followUpAdvisor,
+            key: "currentFollowUpAdvisor",
+            label: "当前跟进顾问",
+            children: detail.serviceProfile.currentFollowUpAdvisor,
           },
           {
             key: "followUpManager",
             label: "跟进学管",
             children: detail.serviceProfile.followUpManager,
+          },
+          {
+            key: "sharedAdvisor",
+            label: "共享顾问",
+            children: detail.serviceProfile.sharedAdvisor,
           },
         ]}
       />
@@ -532,7 +533,7 @@ function EventsSection({
       {
         title: "风险总结",
         key: "riskSummary",
-        width: 240,
+        width: 280,
         render: (_, row) => (
           <Paragraph
             className={styles.tableSummary}
@@ -545,7 +546,7 @@ function EventsSection({
       {
         title: "命中关键词",
         key: "keywords",
-        width: 196,
+        width: 220,
         render: (_, row) => {
           const keywordText = row.event.keywords.join("、");
           return row.event.keywords.length ? (
@@ -572,17 +573,6 @@ function EventsSection({
           const meta = riskEventStatusMeta[row.event.status];
           return <Tag color={meta.color}>{meta.label}</Tag>;
         },
-      },
-      {
-        title: "证据数",
-        key: "evidenceCount",
-        width: 72,
-        align: "center",
-        render: (_, row) => (
-          <Text className={styles.evidenceNumber}>
-            {row.event.evidence.length}
-          </Text>
-        ),
       },
       {
         title: "操作",
@@ -614,7 +604,6 @@ function EventsSection({
     [
       onOpenDetail,
       onRequestStatusUpdate,
-      styles.evidenceNumber,
       styles.tableDate,
       styles.tableKeywords,
       styles.tableOperations,
@@ -651,7 +640,7 @@ function EventsSection({
         columns={columns}
         dataSource={visibleRows}
         rowKey="key"
-        scroll={{ x: 1020 }}
+        scroll={{ x: 1012 }}
         locale={{ emptyText: <Empty description="当前状态下暂无风险事件" /> }}
         pagination={{
           current: currentPage,
