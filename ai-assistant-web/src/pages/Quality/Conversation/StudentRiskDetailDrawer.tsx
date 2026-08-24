@@ -1,4 +1,5 @@
 import {
+  EllipsisOutlined,
   FileTextOutlined,
   TeamOutlined,
   UserOutlined,
@@ -7,21 +8,21 @@ import {
 import {
   Avatar,
   Button,
-  Card,
-  Collapse,
   Descriptions,
-  Divider,
   Drawer,
+  Dropdown,
   Empty,
   Flex,
   List,
   Modal,
   Select,
   Space,
+  Table,
   Tag,
-  Timeline,
+  Tooltip,
   Typography,
 } from "antd";
+import type { TableColumnsType } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import type {
   EvidenceEmployee,
@@ -42,6 +43,8 @@ import {
 import { useStudentRiskDetailStyles } from "./StudentRiskDetailDrawer.styles";
 
 const { Paragraph, Text } = Typography;
+const RISK_TABLE_PAGE_SIZE = 10;
+
 type RiskStatusFilter = "all" | RiskEventStatus;
 
 type SecondaryView = {
@@ -50,9 +53,21 @@ type SecondaryView = {
   evidence: RiskEvidence;
 };
 
+type EventDetailView = {
+  date: string;
+  eventId: string;
+};
+
 type PendingStatusAction = {
   event: RiskEvent;
   status: Exclude<RiskEventStatus, "pending">;
+};
+
+type RiskEventRow = {
+  key: string;
+  date: string;
+  event: RiskEvent;
+  sourceOrder: number;
 };
 
 export type StudentRiskDetailProps = {
@@ -87,52 +102,87 @@ function sourceIcon(sourceType: EvidenceSourceType) {
   return sourceType === "wechat_group" ? <TeamOutlined /> : <WechatOutlined />;
 }
 
-function ProfileSection({ detail }: { detail: RiskStudentDetail }) {
+function flattenRiskEvents(detail: RiskStudentDetail) {
+  let sourceOrder = 0;
+  return detail.eventGroups
+    .flatMap((group) =>
+      group.events.map((event) => ({
+        key: event.id,
+        date: group.date,
+        event,
+        sourceOrder: sourceOrder++,
+      })),
+    )
+    .sort(
+      (first, second) =>
+        second.date.localeCompare(first.date) ||
+        first.sourceOrder - second.sourceOrder,
+    );
+}
+
+function SummarySection({ detail }: { detail: RiskStudentDetail }) {
+  const { styles } = useStudentRiskDetailStyles();
+  const studentRiskMeta = riskLevelMeta[detail.student.riskLevel];
+
   return (
-    <section aria-label="学生与服务信息">
-      <Card size="small" title="学生与服务信息">
-        <Descriptions
-          size="small"
-          column={{ xs: 1, sm: 2 }}
-          items={[
-            {
-              key: "studentName",
-              label: "学生姓名",
-              children: detail.student.studentName,
-            },
-            {
-              key: "studentNumber",
-              label: "客户编号",
-              children: detail.student.studentNumber,
-            },
-            {
-              key: "grade",
-              label: "年级",
-              children: detail.serviceProfile.grade,
-            },
-            {
-              key: "planner",
-              label: "规划师",
-              children: detail.serviceProfile.planner,
-            },
-            {
-              key: "followUpAdvisor",
-              label: "跟进顾问",
-              children: detail.serviceProfile.followUpAdvisor,
-            },
-            {
-              key: "followUpManager",
-              label: "跟进学管",
-              children: detail.serviceProfile.followUpManager,
-            },
-          ]}
-        />
-      </Card>
+    <section aria-label="学生风险摘要" className={styles.summarySection}>
+      <Flex
+        className={styles.summaryHeader}
+        justify="space-between"
+        align="center"
+        gap={12}
+        wrap
+      >
+        <div className={styles.studentIdentity}>
+          <Text className={styles.studentName} strong>
+            {detail.student.studentName}
+          </Text>
+          <Text className={styles.studentNumber} type="secondary">
+            {detail.student.studentNumber}
+          </Text>
+        </div>
+        <Tag className={styles.overallRiskTag} color={studentRiskMeta.color}>
+          {studentRiskMeta.fullLabel}
+        </Tag>
+      </Flex>
+
+      <Descriptions
+        className={styles.summaryDescriptions}
+        size="small"
+        column={{ xs: 1, sm: 2 }}
+        items={[
+          {
+            key: "grade",
+            label: "年级",
+            children: detail.serviceProfile.grade,
+          },
+          {
+            key: "owner",
+            label: "负责人",
+            children: detail.student.owner,
+          },
+          {
+            key: "planner",
+            label: "规划师",
+            children: detail.serviceProfile.planner,
+          },
+          {
+            key: "followUpAdvisor",
+            label: "跟进顾问",
+            children: detail.serviceProfile.followUpAdvisor,
+          },
+          {
+            key: "followUpManager",
+            label: "跟进学管",
+            children: detail.serviceProfile.followUpManager,
+          },
+        ]}
+      />
     </section>
   );
 }
 
-function OverviewSection({ detail }: { detail: RiskStudentDetail }) {
+function RiskStats({ detail }: { detail: RiskStudentDetail }) {
   const { styles } = useStudentRiskDetailStyles();
   const { levelCounts, typeCounts } = useMemo(() => {
     const events = detail.eventGroups.flatMap((group) => group.events);
@@ -146,105 +196,40 @@ function OverviewSection({ detail }: { detail: RiskStudentDetail }) {
   }, [detail.eventGroups]);
 
   return (
-    <section aria-label="风险事件概览">
-      <Card size="small" title="风险事件概览">
-        <div className={styles.overviewBody}>
-          <div className={styles.overviewRow}>
-            <Text type="secondary">风险等级</Text>
-            <Space size={[4, 4]} wrap>
-              {(["high", "medium", "low"] as RiskLevel[]).map((level) => (
-                <Tag key={level} color={riskLevelMeta[level].color}>
-                  {riskLevelMeta[level].fullLabel} × {levelCounts[level]}
-                </Tag>
-              ))}
-            </Space>
-          </div>
-          <div className={styles.overviewRow}>
-            <Text type="secondary">风险类型</Text>
-            <Space size={[4, 4]} wrap>
-              {typeCounts.map(([type, count]) => (
-                <Tag key={type}>
-                  {type} × {count}
-                </Tag>
-              ))}
-            </Space>
-          </div>
-        </div>
-      </Card>
-    </section>
-  );
-}
-
-function EvidenceBlock({
-  evidence,
-  onOpenSecondary,
-}: {
-  evidence: RiskEvidence;
-  onOpenSecondary: (evidence: RiskEvidence) => void;
-}) {
-  const { styles } = useStudentRiskDetailStyles();
-  const meta = evidenceSourceMeta[evidence.sourceType];
-
-  return (
-    <Card
-      size="small"
-      className={styles.evidenceBlock}
-      data-evidence-source={evidence.sourceType}
+    <div
+      role="group"
+      aria-label="风险统计"
+      className={styles.riskStats}
     >
-      <div className={styles.keyQuotes}>
-        <Text strong>关键风险原文</Text>
-        <ul className={styles.keyQuoteList}>
-          {evidence.keyQuotes.map((quote, index) => (
-            <li
-              key={`${quote.occurredAt}-${index}`}
-              className={styles.keyQuoteItem}
-            >
-              <Text type="secondary" className={styles.keyQuoteTime}>
-                {quote.occurredAt.slice(11)}
-              </Text>
-              <span className={styles.keyQuoteContent}>
-                {quote.speaker}：“{quote.content}”
-              </span>
-            </li>
+      <div className={styles.riskStatRow}>
+        <Text className={styles.riskStatLabel} type="secondary">
+          风险等级
+        </Text>
+        <Space size={[4, 4]} wrap>
+          {(["high", "medium", "low"] as RiskLevel[]).map((level) => (
+            <Tag key={level} color={riskLevelMeta[level].color}>
+              {riskLevelMeta[level].fullLabel} × {levelCounts[level]}
+            </Tag>
           ))}
-        </ul>
+        </Space>
       </div>
-
-      <Flex className={styles.evidenceMeta} align="center" gap={8} wrap>
-        <Text type="secondary">
-          {sourceIcon(evidence.sourceType)} {meta.label}
+      <div className={styles.riskStatRow}>
+        <Text className={styles.riskStatLabel} type="secondary">
+          风险类型
         </Text>
-        {evidence.sourceType === "wechat_group" ? (
-          <>
-            <Divider orientation="vertical" />
-            <Text type="secondary">群聊名称：{evidence.groupName}</Text>
-          </>
-        ) : null}
-        <Divider orientation="vertical" />
-        <Text type="secondary">
-          沟通员工：{formatEmployees(evidence.employees)}
-        </Text>
-        <Divider orientation="vertical" />
-        <Text type="secondary">
-          沟通时间：{getEvidenceCommunicationAt(evidence)}
-        </Text>
-      </Flex>
-
-      <div className={styles.actionRow}>
-        <Button
-          type="link"
-          size="small"
-          icon={<FileTextOutlined />}
-          onClick={() => onOpenSecondary(evidence)}
-        >
-          {meta.actionLabel}
-        </Button>
+        <Space size={[4, 4]} wrap>
+          {typeCounts.map(([type, count]) => (
+            <Tag key={type}>
+              {type} × {count}
+            </Tag>
+          ))}
+        </Space>
       </div>
-    </Card>
+    </div>
   );
 }
 
-function EvidenceSection({
+function EvidenceList({
   event,
   onOpenSecondary,
 }: {
@@ -252,64 +237,133 @@ function EvidenceSection({
   onOpenSecondary: (evidence: RiskEvidence) => void;
 }) {
   const { styles } = useStudentRiskDetailStyles();
-  const sourceCounts = useMemo(() => {
-    const counts = new Map<EvidenceSourceType, number>();
-    for (const evidence of event.evidence) {
-      counts.set(evidence.sourceType, (counts.get(evidence.sourceType) ?? 0) + 1);
-    }
-    return [...counts.entries()];
-  }, [event.evidence]);
 
   return (
-    <Collapse
-      className={styles.evidenceCollapse}
-      size="small"
-      expandIconPlacement="end"
-      items={[
-        {
-          key: "source-evidence",
-          label: (
-            <Flex className={styles.evidenceCollapseLabel} align="center" gap={8} wrap>
-              <Text strong>来源证据 {event.evidence.length}条</Text>
-              <Space size={[4, 4]} wrap>
-                {sourceCounts.map(([sourceType, count]) => (
-                  <Tag key={sourceType} icon={sourceIcon(sourceType)}>
-                    {evidenceSourceMeta[sourceType].label} × {count}
-                  </Tag>
-                ))}
+    <List<RiskEvidence>
+      className={styles.evidenceList}
+      dataSource={event.evidence}
+      renderItem={(evidence) => (
+        <List.Item key={evidence.id} className={styles.evidenceItem}>
+          <div className={styles.evidenceItemBody}>
+            <Flex
+              className={styles.evidenceItemHeader}
+              justify="space-between"
+              align="center"
+              gap={8}
+              wrap
+            >
+              <Space className={styles.evidenceItemTitle} size={[8, 4]} wrap>
+                <Tag icon={sourceIcon(evidence.sourceType)}>
+                  {evidenceSourceMeta[evidence.sourceType].label}
+                </Tag>
+                {evidence.sourceType === "wechat_group" ? (
+                  <Text type="secondary">
+                    群聊名称：{evidence.groupName}
+                  </Text>
+                ) : null}
               </Space>
+              <Button
+                type="link"
+                size="small"
+                icon={<FileTextOutlined />}
+                onClick={() => onOpenSecondary(evidence)}
+              >
+                {evidenceSourceMeta[evidence.sourceType].actionLabel}
+              </Button>
             </Flex>
-          ),
-          children: (
-            <div className={styles.evidenceList}>
-              {event.evidence.map((evidence) => (
-                <EvidenceBlock
-                  key={evidence.id}
-                  evidence={evidence}
-                  onOpenSecondary={onOpenSecondary}
-                />
-              ))}
+
+            <div className={styles.keyQuotes}>
+              <Text strong>关键风险原文</Text>
+              <ul className={styles.keyQuoteList}>
+                {evidence.keyQuotes.map((quote, index) => (
+                  <li
+                    key={`${quote.occurredAt}-${index}`}
+                    className={styles.keyQuoteItem}
+                  >
+                    <Text type="secondary" className={styles.keyQuoteTime}>
+                      {quote.occurredAt.slice(11)}
+                    </Text>
+                    <span className={styles.keyQuoteContent}>
+                      {quote.speaker}：“{quote.content}”
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ),
-        },
-      ]}
+
+            <Flex className={styles.evidenceMeta} align="center" gap={16} wrap>
+              <Text type="secondary">
+                沟通员工：{formatEmployees(evidence.employees)}
+              </Text>
+              <Text type="secondary">
+                沟通时间：{getEvidenceCommunicationAt(evidence)}
+              </Text>
+            </Flex>
+          </div>
+        </List.Item>
+      )}
     />
   );
 }
 
-function TimelineEvent({
+function RiskActions({
   event,
-  onOpenSecondary,
-  onRequestStatusUpdate,
   updating,
+  onRequestStatusUpdate,
 }: {
   event: RiskEvent;
-  onOpenSecondary: (evidence: RiskEvidence) => void;
+  updating: boolean;
   onRequestStatusUpdate: (
     event: RiskEvent,
     status: Exclude<RiskEventStatus, "pending">,
   ) => void;
-  updating: boolean;
+}) {
+  return (
+    <Dropdown
+      trigger={["click"]}
+      placement="bottomRight"
+      menu={{
+        items: [
+          {
+            key: "resolved",
+            label: "标记为已处理",
+            disabled: updating,
+          },
+          {
+            key: "excluded",
+            label: "排除风险",
+            danger: true,
+            disabled: updating,
+          },
+        ],
+        onClick: ({ key, domEvent }) => {
+          domEvent.stopPropagation();
+          if (key === "resolved" || key === "excluded") {
+            onRequestStatusUpdate(event, key);
+          }
+        },
+      }}
+    >
+      <Button
+        type="text"
+        size="small"
+        aria-label={`更多操作 ${event.riskType}`}
+        icon={<EllipsisOutlined />}
+        loading={updating}
+        onClick={(clickEvent) => clickEvent.stopPropagation()}
+      />
+    </Dropdown>
+  );
+}
+
+function RiskEventDetails({
+  date,
+  event,
+  onOpenSecondary,
+}: {
+  date: string;
+  event: RiskEvent;
+  onOpenSecondary: (evidence: RiskEvidence) => void;
 }) {
   const { styles } = useStudentRiskDetailStyles();
   const levelMeta = riskLevelMeta[event.riskLevel];
@@ -332,103 +386,108 @@ function TimelineEvent({
         : undefined;
 
   return (
-    <Card size="small" className={styles.riskTypeCard}>
-      <div className={styles.riskTypeHeader}>
-        <Text className={styles.riskTypeValue} strong>
-          {event.riskType}
+    <div className={styles.eventDetails}>
+      <Descriptions
+        className={styles.eventDescriptions}
+        size="small"
+        column={{ xs: 1, sm: 2 }}
+        items={[
+          { key: "date", label: "风险日期", children: date },
+          { key: "type", label: "风险类型", children: event.riskType },
+          {
+            key: "level",
+            label: "风险等级",
+            children: <Tag color={levelMeta.color}>{levelMeta.fullLabel}</Tag>,
+          },
+          {
+            key: "status",
+            label: "处理状态",
+            children: <Tag color={statusMeta.color}>{statusMeta.label}</Tag>,
+          },
+          {
+            key: "evidenceCount",
+            label: "证据数",
+            children: `${event.evidence.length} 条`,
+          },
+        ]}
+      />
+
+      <section className={styles.detailSection} aria-label="完整风险总结">
+        <Text className={styles.detailLabel} type="secondary">
+          风险总结
         </Text>
-      </div>
+        <Paragraph className={styles.detailParagraph}>
+          {event.riskSummary}
+        </Paragraph>
+      </section>
 
-      <div className={styles.riskMetaRow}>
-        <div className={styles.riskMetaItem}>
-          <Text type="secondary">风险等级</Text>
-          <Tag color={levelMeta.color} style={{ marginInlineEnd: 0 }}>
-            {levelMeta.fullLabel}
-          </Tag>
-        </div>
-        <div className={styles.riskMetaItem}>
-          <Text type="secondary">风险状态</Text>
-          <Tag color={statusMeta.color} style={{ marginInlineEnd: 0 }}>
-            {statusMeta.label}
-          </Tag>
-        </div>
-        {auditMeta ? (
-          <>
-            <div className={styles.riskMetaItem}>
-              <Text type="secondary">{auditMeta.actorLabel}</Text>
-              <Text className={styles.riskMetaValue}>{auditMeta.actor}</Text>
-            </div>
-            <div className={styles.riskMetaItem}>
-              <Text type="secondary">{auditMeta.timeLabel}</Text>
-              <Text className={styles.riskMetaValue}>
-                {auditMeta.time.slice(0, 16)}
-              </Text>
-            </div>
-          </>
-        ) : null}
-      </div>
-
-      <div className={styles.riskKeywordRow}>
-        <Text type="secondary">命中关键词</Text>
-        <Space size={[4, 4]} wrap>
-          {event.keywords.map((keyword) => (
-            <Tag key={keyword} style={{ marginInlineEnd: 0 }}>
-              {keyword}
-            </Tag>
-          ))}
+      <div className={styles.detailRow}>
+        <Text className={styles.detailLabel} type="secondary">
+          命中关键词
+        </Text>
+        <Space className={styles.detailContent} size={[4, 4]} wrap>
+          {event.keywords.length ? (
+            event.keywords.map((keyword) => <Tag key={keyword}>{keyword}</Tag>)
+          ) : (
+            <Text type="secondary">暂无</Text>
+          )}
         </Space>
       </div>
 
-      <div className={styles.riskSummary}>
-        <Text type="secondary">风险总结</Text>
-        <Paragraph className={styles.riskSummaryText}>
-          {event.riskSummary}
-        </Paragraph>
-      </div>
-      <div className={styles.riskSummary}>
-        <Text type="secondary">处理建议</Text>
-        <Paragraph className={styles.riskSummaryText}>
+      <section className={styles.detailSection} aria-label="处理建议">
+        <Text className={styles.detailLabel} type="secondary">
+          处理建议
+        </Text>
+        <Paragraph className={styles.detailParagraph}>
           {event.handlingSuggestion}
         </Paragraph>
-      </div>
+      </section>
 
-      <EvidenceSection event={event} onOpenSecondary={onOpenSecondary} />
-
-      {event.status === "pending" ? (
-        <div className={styles.eventActions}>
-          <Button
-            size="small"
-            disabled={updating}
-            onClick={() => onRequestStatusUpdate(event, "excluded")}
-          >
-            排除风险
-          </Button>
-          <Button
-            size="small"
-            type="primary"
-            loading={updating}
-            onClick={() => onRequestStatusUpdate(event, "resolved")}
-          >
-            已处理风险
-          </Button>
-        </div>
+      {auditMeta ? (
+        <Descriptions
+          className={styles.auditDescriptions}
+          size="small"
+          column={{ xs: 1, sm: 2 }}
+          items={[
+            {
+              key: "actor",
+              label: auditMeta.actorLabel,
+              children: auditMeta.actor,
+            },
+            {
+              key: "time",
+              label: auditMeta.timeLabel,
+              children: auditMeta.time.slice(0, 16),
+            },
+          ]}
+        />
       ) : null}
-    </Card>
+
+      <div className={styles.evidenceHeading}>
+        <Text strong>来源证据</Text>
+        <Text type="secondary">{event.evidence.length} 条</Text>
+      </div>
+      <EvidenceList event={event} onOpenSecondary={onOpenSecondary} />
+    </div>
   );
 }
 
 function EventsSection({
   detail,
   statusFilter,
+  currentPage,
   onStatusFilterChange,
-  onOpenSecondary,
+  onPageChange,
+  onOpenDetail,
   onRequestStatusUpdate,
   updatingEventId,
 }: {
   detail: RiskStudentDetail;
   statusFilter: RiskStatusFilter;
+  currentPage: number;
   onStatusFilterChange: (status: RiskStatusFilter) => void;
-  onOpenSecondary: (view: SecondaryView) => void;
+  onPageChange: (page: number) => void;
+  onOpenDetail: (view: EventDetailView) => void;
   onRequestStatusUpdate: (
     event: RiskEvent,
     status: Exclude<RiskEventStatus, "pending">,
@@ -436,84 +495,217 @@ function EventsSection({
   updatingEventId?: string | null;
 }) {
   const { styles } = useStudentRiskDetailStyles();
-  const visibleGroups = useMemo(
+  const allRows = useMemo(() => flattenRiskEvents(detail), [detail]);
+  const visibleRows = useMemo(
     () =>
-      detail.eventGroups
-        .map((group) => ({
-          ...group,
-          events:
-            statusFilter === "all"
-              ? group.events
-              : group.events.filter((event) => event.status === statusFilter),
-        }))
-        .filter((group) => group.events.length),
-    [detail.eventGroups, statusFilter],
+      statusFilter === "all"
+        ? allRows
+        : allRows.filter((row) => row.event.status === statusFilter),
+    [allRows, statusFilter],
+  );
+  const columns = useMemo<TableColumnsType<RiskEventRow>>(
+    () => [
+      {
+        title: "风险日期",
+        dataIndex: "date",
+        key: "date",
+        width: 108,
+        render: (date: string) => (
+          <Text className={styles.tableDate}>{date}</Text>
+        ),
+      },
+      {
+        title: "风险类型",
+        key: "riskType",
+        width: 104,
+        render: (_, row) => <Text strong>{row.event.riskType}</Text>,
+      },
+      {
+        title: "风险等级",
+        key: "riskLevel",
+        width: 88,
+        render: (_, row) => {
+          const meta = riskLevelMeta[row.event.riskLevel];
+          return <Tag color={meta.color}>{meta.fullLabel}</Tag>;
+        },
+      },
+      {
+        title: "风险总结",
+        key: "riskSummary",
+        width: 240,
+        render: (_, row) => (
+          <Paragraph
+            className={styles.tableSummary}
+            ellipsis={{ rows: 2, tooltip: row.event.riskSummary }}
+          >
+            {row.event.riskSummary}
+          </Paragraph>
+        ),
+      },
+      {
+        title: "命中关键词",
+        key: "keywords",
+        width: 196,
+        render: (_, row) => {
+          const keywordText = row.event.keywords.join("、");
+          return row.event.keywords.length ? (
+            <Tooltip title={keywordText} placement="topLeft">
+              <div
+                className={styles.tableKeywords}
+                aria-label={`命中关键词 ${keywordText}`}
+              >
+                {row.event.keywords.map((keyword) => (
+                  <Tag key={keyword}>{keyword}</Tag>
+                ))}
+              </div>
+            </Tooltip>
+          ) : (
+            <Text type="secondary">暂无</Text>
+          );
+        },
+      },
+      {
+        title: "处理状态",
+        key: "status",
+        width: 88,
+        render: (_, row) => {
+          const meta = riskEventStatusMeta[row.event.status];
+          return <Tag color={meta.color}>{meta.label}</Tag>;
+        },
+      },
+      {
+        title: "证据数",
+        key: "evidenceCount",
+        width: 72,
+        align: "center",
+        render: (_, row) => (
+          <Text className={styles.evidenceNumber}>
+            {row.event.evidence.length}
+          </Text>
+        ),
+      },
+      {
+        title: "操作",
+        key: "operation",
+        width: 124,
+        fixed: "right",
+        render: (_, row) => (
+          <Space className={styles.tableOperations} size={0}>
+            <Button
+              type="link"
+              size="small"
+              onClick={() =>
+                onOpenDetail({ date: row.date, eventId: row.event.id })
+              }
+            >
+              详情
+            </Button>
+            {row.event.status === "pending" ? (
+              <RiskActions
+                event={row.event}
+                updating={updatingEventId === row.event.id}
+                onRequestStatusUpdate={onRequestStatusUpdate}
+              />
+            ) : null}
+          </Space>
+        ),
+      },
+    ],
+    [
+      onOpenDetail,
+      onRequestStatusUpdate,
+      styles.evidenceNumber,
+      styles.tableDate,
+      styles.tableKeywords,
+      styles.tableOperations,
+      styles.tableSummary,
+      updatingEventId,
+    ],
   );
 
   return (
-    <section aria-label="风险详情">
-      <Card
+    <section aria-label="风险详情" className={styles.eventsSection}>
+      <header className={styles.eventsHeader}>
+        <Text strong>风险详情</Text>
+        <Select<RiskStatusFilter>
+          aria-label="风险状态筛选"
+          className={styles.statusFilter}
+          value={statusFilter}
+          onChange={onStatusFilterChange}
+          options={[
+            { label: "全部状态", value: "all" },
+            { label: "待处理", value: "pending" },
+            { label: "已处理", value: "resolved" },
+            { label: "已排除", value: "excluded" },
+          ]}
+        />
+      </header>
+
+      <RiskStats detail={detail} />
+
+      <Table<RiskEventRow>
+        className={styles.riskTable}
+        aria-label="风险事件表格"
         size="small"
-        title="风险详情"
-        extra={
-          <Select<RiskStatusFilter>
-            aria-label="风险状态筛选"
-            className={styles.statusFilter}
-            value={statusFilter}
-            onChange={onStatusFilterChange}
-            options={[
-              { label: "全部状态", value: "all" },
-              { label: "待处理", value: "pending" },
-              { label: "已处理", value: "resolved" },
-              { label: "已排除", value: "excluded" },
-            ]}
-          />
-        }
-      >
-        <div className={styles.eventsBody}>
-          {visibleGroups.length ? (
-            <Timeline
-              className={styles.eventsTimeline}
-              mode="start"
-              titleSpan="112px"
-              items={visibleGroups.map((group) => ({
-                color: "blue",
-                title: (
-                  <time
-                    aria-label={`风险日期 ${group.date}`}
-                    className={styles.timelineDate}
-                    dateTime={group.date}
-                  >
-                    {group.date}
-                  </time>
-                ),
-                content: (
-                  <div className={styles.timelineEventList}>
-                    {group.events.map((event) => (
-                      <TimelineEvent
-                        key={event.id}
-                        event={event}
-                        updating={updatingEventId === event.id}
-                        onRequestStatusUpdate={onRequestStatusUpdate}
-                        onOpenSecondary={(evidence) =>
-                          onOpenSecondary({
-                            date: group.date,
-                            riskType: event.riskType,
-                            evidence,
-                          })
-                        }
-                      />
-                    ))}
-                  </div>
-                ),
-              }))}
-            />
-          ) : (
-            <Empty description="当前状态下暂无风险事件" />
-          )}
-        </div>
-      </Card>
+        tableLayout="fixed"
+        columns={columns}
+        dataSource={visibleRows}
+        rowKey="key"
+        scroll={{ x: 1020 }}
+        locale={{ emptyText: <Empty description="当前状态下暂无风险事件" /> }}
+        pagination={{
+          current: currentPage,
+          pageSize: RISK_TABLE_PAGE_SIZE,
+          hideOnSinglePage: true,
+          showSizeChanger: false,
+          onChange: onPageChange,
+        }}
+      />
     </section>
+  );
+}
+
+function RiskEventDetailDrawer({
+  view,
+  event,
+  onClose,
+  onOpenSecondary,
+}: {
+  view: EventDetailView | null;
+  event: RiskEvent | null;
+  onClose: () => void;
+  onOpenSecondary: (view: SecondaryView) => void;
+}) {
+  const { styles } = useStudentRiskDetailStyles();
+  return (
+    <Drawer
+      title={
+        view && event
+          ? `${view.date} · ${event.riskType}风险详情`
+          : undefined
+      }
+      size="min(720px, 100vw)"
+      open={Boolean(view && event)}
+      onClose={onClose}
+      destroyOnHidden
+      styles={{ body: { padding: 0 } }}
+    >
+      {view && event ? (
+        <div className={styles.eventDrawerBody}>
+          <RiskEventDetails
+            date={view.date}
+            event={event}
+            onOpenSecondary={(evidence) =>
+              onOpenSecondary({
+                date: view.date,
+                riskType: event.riskType,
+                evidence,
+              })
+            }
+          />
+        </div>
+      ) : null}
+    </Drawer>
   );
 }
 
@@ -585,16 +777,54 @@ export function StudentRiskDetail({
 }: StudentRiskDetailProps) {
   const { styles } = useStudentRiskDetailStyles();
   const [secondaryView, setSecondaryView] = useState<SecondaryView | null>(null);
+  const [eventDetailView, setEventDetailView] =
+    useState<EventDetailView | null>(null);
   const [statusFilter, setStatusFilter] = useState<RiskStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [pendingAction, setPendingAction] =
     useState<PendingStatusAction | null>(null);
   const studentId = detail?.student.id;
 
+  const selectedEvent = useMemo(() => {
+    if (!detail || !eventDetailView) return null;
+    const group = detail.eventGroups.find(
+      (candidate) => candidate.date === eventDetailView.date,
+    );
+    return (
+      group?.events.find((event) => event.id === eventDetailView.eventId) ?? null
+    );
+  }, [detail, eventDetailView]);
+
+  const visibleEventCount = useMemo(() => {
+    if (!detail) return 0;
+    const events = detail.eventGroups.flatMap((group) => group.events);
+    return statusFilter === "all"
+      ? events.length
+      : events.filter((event) => event.status === statusFilter).length;
+  }, [detail, statusFilter]);
+
   useEffect(() => {
     setSecondaryView(null);
+    setEventDetailView(null);
     setStatusFilter("all");
+    setCurrentPage(1);
     setPendingAction(null);
   }, [studentId]);
+
+  useEffect(() => {
+    const lastPage = Math.max(
+      1,
+      Math.ceil(visibleEventCount / RISK_TABLE_PAGE_SIZE),
+    );
+    if (currentPage > lastPage) setCurrentPage(lastPage);
+  }, [currentPage, visibleEventCount]);
+
+  useEffect(() => {
+    if (eventDetailView && !selectedEvent) {
+      setEventDetailView(null);
+      setSecondaryView(null);
+    }
+  }, [eventDetailView, selectedEvent]);
 
   const actionIsExcluded = pendingAction?.status === "excluded";
   const actionTitle = actionIsExcluded
@@ -612,13 +842,22 @@ export function StudentRiskDetail({
           className={`${styles.drawerBody} student-risk-detail-content`}
         >
           <div className={styles.content}>
-            <ProfileSection detail={detail} />
-            <OverviewSection detail={detail} />
+            <SummarySection detail={detail} />
             <EventsSection
               detail={detail}
               statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              onOpenSecondary={setSecondaryView}
+              currentPage={currentPage}
+              onStatusFilterChange={(status) => {
+                setStatusFilter(status);
+                setCurrentPage(1);
+                setEventDetailView(null);
+                setSecondaryView(null);
+              }}
+              onPageChange={setCurrentPage}
+              onOpenDetail={(view) => {
+                setEventDetailView(view);
+                setSecondaryView(null);
+              }}
               onRequestStatusUpdate={(event, status) =>
                 setPendingAction({ event, status })
               }
@@ -629,6 +868,16 @@ export function StudentRiskDetail({
       ) : (
         <Empty description="暂无学生风险详情" />
       )}
+
+      <RiskEventDetailDrawer
+        view={eventDetailView}
+        event={selectedEvent}
+        onClose={() => {
+          setEventDetailView(null);
+          setSecondaryView(null);
+        }}
+        onOpenSecondary={setSecondaryView}
+      />
 
       <SecondaryEvidenceDrawer
         view={secondaryView}

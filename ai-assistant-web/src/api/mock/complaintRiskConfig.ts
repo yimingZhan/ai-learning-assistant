@@ -69,10 +69,14 @@ const initialRiskTypes: ComplaintRiskTypeConfig[] = [
   },
 ];
 
+const initialSummaryPrompt =
+  "你是 AI 客诉预警助手。请仅基于已提供的学生沟通记录、已识别的风险事件和处理状态生成风险总结。总结应客观、简洁，优先说明当前仍待处理的核心风险及其依据，不得补充数据中不存在的事实；对已排除或已处理的风险需明确区分，信息不足时直接说明需要人工核实。";
+
 export function createInitialComplaintRiskConfig(): ComplaintRiskConfig {
   return {
     sceneId: "complaintRisk",
     sceneName: "AI 客诉预警",
+    summaryPrompt: initialSummaryPrompt,
     publishedVersion: "v1.0",
     draftVersion: "v1.1-draft",
     draftStatus: "published",

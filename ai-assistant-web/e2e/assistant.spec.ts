@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
     page.getByRole("region", { name: "学生客诉风险详情" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("option", { name: /林家宁 S2026001 待处理风险 4/ }),
+    page.getByRole("option", { name: /林家宁 S2026001 有待处理风险 · 4/ }),
   ).toBeVisible();
 });
 
@@ -98,12 +98,12 @@ test("移动端依然对客诉预警隐藏 AI，并将帮助收入用户菜单",
   await expect(page.getByText("帮助与反馈", { exact: true })).toBeVisible();
 });
 
-test("标准查询栏、重置、排序与紧凑分页按预期联动", async ({ page }) => {
+test("标准查询栏、重置与紧凑分页按预期联动", async ({ page }) => {
   const query = page.getByRole("region", { name: "客诉风险学生筛选" });
   const selector = page.getByRole("region", { name: "选择学生" });
 
   for (const label of [
-    "学生姓名/客户编号",
+    "学生信息",
     "风险等级",
     "风险事件时间",
     "员工部门",
@@ -113,7 +113,6 @@ test("标准查询栏、重置、排序与紧凑分页按预期联动", async ({
   }
   await expect(query.getByRole("button", { name: /查\s*询/ })).toBeVisible();
   await expect(query.getByRole("button", { name: /重\s*置/ })).toBeVisible();
-  await expect(query.getByRole("button", { name: "排序" })).toBeVisible();
   await expect(query.getByText("风险来源", { exact: true })).toHaveCount(0);
 
   const studentSearch = query.getByRole("textbox", {
@@ -128,8 +127,7 @@ test("标准查询栏、重置、排序与紧凑分页按预期联动", async ({
   await query.getByRole("button", { name: /重\s*置/ }).click();
   await expect(selector.getByRole("option", { name: /林家宁/ })).toBeVisible();
 
-  await query.getByRole("button", { name: "排序" }).click();
-  await page.getByRole("menuitem", { name: "待处理风险数" }).click();
+  await selector.getByRole("tab", { name: "全部（6）" }).click();
   await expect(selector.getByRole("option").first()).toHaveAccessibleName(/林家宁/);
 
   const pagination = selector.getByLabel("学生列表分页");
@@ -168,26 +166,63 @@ test("员工客诉列表保留官方查询表格和 URL 下钻", async ({ page }
 });
 
 test("风险详情展示纯企微证据，并完成两种风险状态流转", async ({ page }) => {
+  test.slow();
   const detail = page.getByRole("region", { name: "学生客诉风险详情" });
   const selector = page.getByRole("region", { name: "选择学生" });
+  const riskTable = detail.getByRole("table", { name: "风险事件表格" });
 
   for (const riskType of ["跟进及时性", "退费", "客诉"]) {
     await expect(detail.getByText(riskType, { exact: true }).first()).toBeVisible();
   }
-  await expect(detail.getByText("风险事件概览", { exact: true })).toBeVisible();
+  const studentSummary = detail.getByRole("region", { name: "学生风险摘要" });
+  const riskStats = detail.getByRole("group", { name: "风险统计" });
+  await expect(studentSummary).toBeVisible();
+  await expect(riskStats).toBeVisible();
+  await expect(studentSummary.getByText("高风险 × 2")).toHaveCount(0);
+  await expect(riskStats.getByText("高风险 × 2")).toBeVisible();
+  await expect(riskStats.getByText("跟进及时性 × 2")).toBeVisible();
   await expect(detail.getByRole("combobox", { name: "风险状态筛选" })).toBeVisible();
   await expect(detail.getByText("通话内容总结", { exact: true })).toHaveCount(0);
   await expect(detail.getByText("学情信息总结", { exact: true })).toHaveCount(0);
+  for (const column of [
+    "风险日期",
+    "风险类型",
+    "风险等级",
+    "风险总结",
+    "命中关键词",
+    "处理状态",
+    "证据数",
+    "操作",
+  ]) {
+    await expect(riskTable.getByRole("columnheader", { name: column })).toBeVisible();
+  }
+  await expect(riskTable.getByRole("button", { name: "详情" })).toHaveCount(5);
+  expect(
+    await riskStats.evaluate(
+      (element, table) =>
+        element.getBoundingClientRect().bottom <=
+        (table as HTMLElement).getBoundingClientRect().top,
+      await riskTable.elementHandle(),
+    ),
+  ).toBe(true);
+  await expect(detail.locator(".ant-collapse")).toHaveCount(0);
 
-  const evidenceToggles = detail.getByRole("button", { name: /来源证据/ });
-  await expect(evidenceToggles).toHaveCount(5);
-  await evidenceToggles.first().click();
-  await expect(detail.getByText("企微单聊 × 1", { exact: true }).first()).toBeVisible();
-  await expect(detail.getByText("企微群聊 × 1", { exact: true }).first()).toBeVisible();
-  await expect(detail.getByText("群聊名称：林家宁服务沟通群")).toBeVisible();
-  await expect(detail.getByText("沟通时间：2026-08-09 09:12")).toBeVisible();
+  const firstRiskRow = riskTable
+    .getByRole("row")
+    .filter({ hasText: "家长连续反馈找不到负责人" });
+  await expect(
+    firstRiskRow.getByLabel("命中关键词 找不到人、联系不上、未反馈"),
+  ).toBeVisible();
+  await firstRiskRow.getByRole("button", { name: "详情" }).click();
+  const eventDrawer = page.getByRole("dialog", {
+    name: "2026-08-09 · 跟进及时性风险详情",
+  });
+  await expect(eventDrawer.getByText("企微单聊", { exact: true })).toBeVisible();
+  await expect(eventDrawer.getByText("企微群聊", { exact: true })).toBeVisible();
+  await expect(eventDrawer.getByText("群聊名称：林家宁服务沟通群")).toBeVisible();
+  await expect(eventDrawer.getByText("沟通时间：2026-08-09 09:12")).toBeVisible();
 
-  const chatButtons = detail.getByRole("button", { name: /查看完整聊天/ });
+  const chatButtons = eventDrawer.getByRole("button", { name: /查看完整聊天/ });
   await chatButtons.nth(1).click();
   const chatDrawer = page.getByRole("dialog", {
     name: "2026-08-09 · 跟进及时性 · 完整聊天",
@@ -195,32 +230,46 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   await expect(chatDrawer.getByText("林家宁服务沟通群", { exact: true })).toBeVisible();
   await chatDrawer.getByRole("button", { name: "关闭" }).click();
   await expect(chatDrawer).toBeHidden();
+  await eventDrawer.getByRole("button", { name: "关闭" }).click();
+  await expect(eventDrawer).toBeHidden();
 
   const statusSelect = detail.getByRole("combobox", { name: "风险状态筛选" });
   await statusSelect.click();
   await statusSelect.press("ArrowDown");
   await statusSelect.press("Enter");
-  await expect(detail.getByRole("button", { name: "已处理风险" })).toHaveCount(4);
+  await expect(
+    detail.getByRole("button", { name: /^更多操作 / }),
+  ).toHaveCount(4);
 
-  await detail.getByRole("button", { name: "已处理风险" }).first().click();
+  await detail.getByRole("button", { name: /^更多操作 / }).first().click();
+  await page.getByRole("menuitem", { name: "标记为已处理" }).click();
   const resolvedModal = page.getByRole("dialog", {
     name: "确认标记该风险为已处理？",
   });
   await expect(resolvedModal.getByText(/不再计入该学生的待处理风险数量/)).toBeVisible();
   await resolvedModal.getByRole("button", { name: "确认已处理" }).click();
   await expect(
-    selector.getByRole("option", { name: /林家宁 S2026001 待处理风险 3/ }),
+    selector.getByRole("option", {
+      name: /林家宁 S2026001 有待处理风险 · 3/,
+    }),
   ).toBeVisible();
-  await expect(detail.getByRole("button", { name: "已处理风险" })).toHaveCount(3);
+  await expect(
+    detail.getByRole("button", { name: /^更多操作 / }),
+  ).toHaveCount(3);
 
-  await detail.getByRole("button", { name: "排除风险" }).first().click();
+  await detail.getByRole("button", { name: /^更多操作 / }).first().click();
+  await page.getByRole("menuitem", { name: "排除风险" }).click();
   const excludedModal = page.getByRole("dialog", { name: "确认排除该风险？" });
   await expect(excludedModal.getByText(/风险状态将变为“已排除”/)).toBeVisible();
   await excludedModal.getByRole("button", { name: "确认排除" }).click();
   await expect(
-    selector.getByRole("option", { name: /林家宁 S2026001 待处理风险 2/ }),
+    selector.getByRole("option", {
+      name: /林家宁 S2026001 有待处理风险 · 2/,
+    }),
   ).toBeVisible();
-  await expect(detail.getByRole("button", { name: "排除风险" })).toHaveCount(2);
+  await expect(
+    detail.getByRole("button", { name: /^更多操作 / }),
+  ).toHaveCount(2);
 });
 
 test("各响应式宽度只展示两个业务面板且无横向溢出", async ({ page }) => {
@@ -234,11 +283,26 @@ test("各响应式宽度只展示两个业务面板且无横向溢出", async ({
     await expect(page.getByRole("region", { name: /客诉 AI 助手/ })).toHaveCount(0);
     await expect(page.getByLabel("AI 助手侧栏")).toHaveCount(0);
 
-    expect(
-      await page.locator(".student-risk-detail-content").evaluate(
-        (element) => element.scrollWidth > element.clientWidth + 1,
-      ),
-    ).toBe(false);
+    const overflowState = await page
+      .locator(".student-risk-detail-content")
+      .evaluate((element) => {
+        const tableScroller = element.querySelector<HTMLElement>(
+          ".ant-table-content",
+        );
+        return {
+          detailOverflow: element.scrollWidth > element.clientWidth + 1,
+          documentOverflow:
+            document.documentElement.scrollWidth >
+            document.documentElement.clientWidth + 1,
+          tableScrolls: Boolean(
+            tableScroller &&
+              tableScroller.scrollWidth > tableScroller.clientWidth + 1,
+          ),
+        };
+      });
+    expect(overflowState.detailOverflow, `detail width: ${width}`).toBe(false);
+    expect(overflowState.documentOverflow, `document width: ${width}`).toBe(false);
+    expect(overflowState.tableScrolls, `table width: ${width}`).toBe(true);
 
     if (width >= 1024) {
       await expect(page.locator(".ant-splitter-panel > .ant-card")).toHaveCount(2);

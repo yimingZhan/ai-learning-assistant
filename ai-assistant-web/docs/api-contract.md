@@ -1,5 +1,25 @@
 # API Contract
 
+## AI 客诉预警配置
+
+现有接口路径保持不变：
+
+| 用途 | Method | URL |
+| --- | --- | --- |
+| 获取当前配置 | GET | `/api/v1/ai-config/complaint-risk` |
+| 更新并即时生效 | PATCH | `/api/v1/ai-config/complaint-risk` |
+
+`ComplaintRiskConfig` 在原字段基础上增加必填的风险总结系统提示词：
+
+```ts
+type ComplaintRiskConfig = {
+  summaryPrompt: string;
+  // 其余场景、版本、更新信息和 riskTypes 字段保持不变。
+};
+```
+
+`summaryPrompt` 保存时去除首尾空格，纯空白内容无效。该字段只控制客诉预警详情中的“风险总结”，不参与风险识别或等级判定。
+
 ## 续费规则配置 / 升学目标标的
 
 现有接口路径保持不变：

@@ -309,6 +309,7 @@ export type ComplaintRiskTypeConfig = {
 export type ComplaintRiskConfig = {
   sceneId: "complaintRisk";
   sceneName: string;
+  summaryPrompt: string;
   publishedVersion: string;
   draftVersion: string;
   draftStatus: "published" | "saved";

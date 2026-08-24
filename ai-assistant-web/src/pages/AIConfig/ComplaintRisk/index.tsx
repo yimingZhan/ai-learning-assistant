@@ -2,6 +2,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
+  SaveOutlined,
 } from "@ant-design/icons";
 import {
   PageContainer,
@@ -14,10 +15,12 @@ import {
   Card,
   Empty,
   Flex,
+  Input,
   Modal,
   Space,
   Spin,
   Tag,
+  Tabs,
   Typography,
   message,
 } from "antd";
@@ -32,6 +35,10 @@ import { useComplaintRiskConfigStyles } from "./index.styles";
 
 function normalizedKey(value: string) {
   return value.trim().toLocaleLowerCase();
+}
+
+export function normalizeSummaryPrompt(summaryPrompt: string) {
+  return summaryPrompt.trim();
 }
 
 export function normalizeRiskTypes(
@@ -71,6 +78,10 @@ export function removeRiskTypeById(
 export function validateConfiguration(
   config: ComplaintRiskConfig,
 ): string | undefined {
+  if (!normalizeSummaryPrompt(config.summaryPrompt)) {
+    return "AI 总结提示词不能为空";
+  }
+
   if (!config.riskTypes.length) {
     return "至少保留一个风险类型";
   }
@@ -119,6 +130,8 @@ export default function ComplaintRiskConfigPage() {
   const { styles } = useComplaintRiskConfigStyles();
   const [config, setConfig] = useState<ComplaintRiskConfig | null>(null);
   const [riskTypes, setRiskTypes] = useState<ComplaintRiskTypeConfig[]>([]);
+  const [summaryPromptDraft, setSummaryPromptDraft] = useState("");
+  const [savingSummaryPrompt, setSavingSummaryPrompt] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -132,6 +145,7 @@ export default function ComplaintRiskConfigPage() {
       const nextConfig = await aiConfigApi.getComplaintRiskConfig();
       setConfig(nextConfig);
       setRiskTypes(nextConfig.riskTypes);
+      setSummaryPromptDraft(nextConfig.summaryPrompt);
     } catch {
       setLoadError(true);
     } finally {
@@ -178,6 +192,40 @@ export default function ComplaintRiskConfigPage() {
 
   async function saveRiskType(riskType: ComplaintRiskTypeConfig) {
     await persistRiskTypes(upsertRiskType(riskTypes, riskType));
+  }
+
+  async function saveSummaryPrompt() {
+    if (!config) return;
+
+    const summaryPrompt = normalizeSummaryPrompt(summaryPromptDraft);
+    if (!summaryPrompt) {
+      message.error("AI 总结提示词不能为空");
+      return;
+    }
+
+    const nextConfig: ComplaintRiskConfig = {
+      ...config,
+      summaryPrompt,
+      riskTypes: normalizeRiskTypes(riskTypes),
+    };
+    const error = validateConfiguration(nextConfig);
+    if (error) {
+      message.error(error);
+      return;
+    }
+
+    setSavingSummaryPrompt(true);
+    try {
+      const savedConfig =
+        await aiConfigApi.updateComplaintRiskConfig(nextConfig);
+      applyServerConfig(savedConfig);
+      setSummaryPromptDraft(savedConfig.summaryPrompt);
+      message.success("AI 总结提示词已更新并即时生效");
+    } catch {
+      message.error("AI 总结提示词更新失败，请重试");
+    } finally {
+      setSavingSummaryPrompt(false);
+    }
   }
 
   function deleteRiskType(riskType: ComplaintRiskTypeConfig) {
@@ -337,37 +385,90 @@ export default function ComplaintRiskConfigPage() {
   return (
     <PageContainer className={styles.page}>
       <div className={styles.content}>
-        <Alert
-          showIcon
-          type="info"
-          description="关键词命中不会直接生成风险事件；AI 会结合参考案例和上下文排除否定、转述，且同一段聊天可以命中多个风险类型。"
-        />
+        <Tabs
+          defaultActiveKey="risk-types"
+          destroyOnHidden={false}
+          items={[
+            {
+              key: "risk-types",
+              label: "风险类型配置",
+              children: (
+                <div className={styles.tabContent}>
+                  <Alert
+                    showIcon
+                    type="info"
+                    description="关键词命中不会直接生成风险事件；AI 会结合参考案例和上下文排除否定、转述，且同一段聊天可以命中多个风险类型。"
+                  />
 
-        <ProTable<ComplaintRiskTypeConfig>
-          rowKey="id"
-          headerTitle={`风险类型配置（${riskTypes.length}）`}
-          columns={columns}
-          dataSource={riskTypes}
-          search={false}
-          options={false}
-          pagination={false}
-          cardBordered
-          scroll={{ x: 1650 }}
-          toolBarRender={() => [
-            <Typography.Text key="total" type="secondary">
-              共 {totalKeywords} 个关键词
-            </Typography.Text>,
-            <Button
-              key="create"
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingRiskType(null);
-                setEditorOpen(true);
-              }}
-            >
-              新增风险类型
-            </Button>,
+                  <ProTable<ComplaintRiskTypeConfig>
+                    rowKey="id"
+                    headerTitle={`风险类型配置（${riskTypes.length}）`}
+                    columns={columns}
+                    dataSource={riskTypes}
+                    search={false}
+                    options={false}
+                    pagination={false}
+                    cardBordered
+                    scroll={{ x: 1650 }}
+                    toolBarRender={() => [
+                      <Typography.Text key="total" type="secondary">
+                        共 {totalKeywords} 个关键词
+                      </Typography.Text>,
+                      <Button
+                        key="create"
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                          setEditingRiskType(null);
+                          setEditorOpen(true);
+                        }}
+                      >
+                        新增风险类型
+                      </Button>,
+                    ]}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: "summary-prompt",
+              label: "AI 总结提示词",
+              children: (
+                <Card
+                  title="系统提示词"
+                  className={styles.promptCard}
+                  extra={
+                    <Button
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      aria-label="保存提示词"
+                      loading={savingSummaryPrompt}
+                      disabled={
+                        savingSummaryPrompt ||
+                        normalizeSummaryPrompt(summaryPromptDraft) ===
+                          config.summaryPrompt
+                      }
+                      onClick={() => void saveSummaryPrompt()}
+                    >
+                      保存提示词
+                    </Button>
+                  }
+                >
+                  <Typography.Paragraph type="secondary">
+                    用于控制客诉预警详情中“风险总结”的生成方式，保存后即时生效。
+                  </Typography.Paragraph>
+                  <Input.TextArea
+                    aria-label="AI 总结提示词"
+                    value={summaryPromptDraft}
+                    autoSize={{ minRows: 6, maxRows: 12 }}
+                    placeholder="请输入 AI 生成客诉风险总结时使用的系统提示词"
+                    onChange={(event) =>
+                      setSummaryPromptDraft(event.target.value)
+                    }
+                  />
+                </Card>
+              ),
+            },
           ]}
         />
       </div>

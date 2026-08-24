@@ -6,6 +6,14 @@ import {
 } from "./complaintRiskConfig";
 
 describe("complaint risk type configuration", () => {
+  it("预置客诉风险总结系统提示词", () => {
+    const config = createInitialComplaintRiskConfig();
+
+    expect(config.summaryPrompt).toBe(
+      "你是 AI 客诉预警助手。请仅基于已提供的学生沟通记录、已识别的风险事件和处理状态生成风险总结。总结应客观、简洁，优先说明当前仍待处理的核心风险及其依据，不得补充数据中不存在的事实；对已排除或已处理的风险需明确区分，信息不足时直接说明需要人工核实。",
+    );
+  });
+
   it("初始化 3 个风险类型并覆盖指定关键词、案例和风险等级定义", () => {
     const config = createInitialComplaintRiskConfig();
 
@@ -97,15 +105,18 @@ describe("complaint risk type configuration", () => {
 });
 
 describe("complaint risk type configuration api", () => {
-  it("更新当前配置后直接生效", async () => {
+  it("更新当前配置和总结提示词后直接生效", async () => {
     const config = await aiConfigApi.getComplaintRiskConfig();
     config.riskTypes[0].name = "跟进响应时效";
+    config.summaryPrompt = "只总结当前仍待处理的客诉风险。";
 
     const saved = await aiConfigApi.updateComplaintRiskConfig(config);
 
     expect(saved.riskTypes[0].name).toBe("跟进响应时效");
+    expect(saved.summaryPrompt).toBe("只总结当前仍待处理的客诉风险。");
     expect(saved.draftStatus).toBe("published");
     const activeConfig = await aiConfigApi.getComplaintRiskConfig();
     expect(activeConfig.riskTypes[0].name).toBe("跟进响应时效");
+    expect(activeConfig.summaryPrompt).toBe("只总结当前仍待处理的客诉风险。");
   });
 });

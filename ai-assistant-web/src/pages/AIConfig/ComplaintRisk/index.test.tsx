@@ -1,14 +1,122 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import type { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@ant-design/pro-components", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@ant-design/pro-components")>();
+  return {
+    ...actual,
+    ProTable: ({
+      columns,
+      dataSource,
+      headerTitle,
+      toolBarRender,
+    }: {
+      columns: Array<{
+        dataIndex?: string;
+        render?: (
+          value: unknown,
+          record: Record<string, unknown>,
+        ) => ReactNode;
+      }>;
+      dataSource: Array<Record<string, unknown>>;
+      headerTitle: ReactNode;
+      toolBarRender?: () => ReactNode[];
+    }) => (
+      <section>
+        <h2>{headerTitle}</h2>
+        <div>{toolBarRender?.()}</div>
+        <table>
+          <tbody>
+            {dataSource.map((record) => (
+              <tr key={String(record.id)}>
+                {columns.map((column, index) => (
+                  <td key={column.dataIndex ?? index}>
+                    {column.render
+                      ? column.render(
+                          column.dataIndex
+                            ? record[column.dataIndex]
+                            : undefined,
+                          record,
+                        )
+                      : String(
+                          column.dataIndex
+                            ? (record[column.dataIndex] ?? "")
+                            : "",
+                        )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ),
+  };
+});
+
+vi.mock("antd", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("antd")>();
+  const { useState } = await import("react");
+  return {
+    ...actual,
+    Tabs: ({
+      defaultActiveKey,
+      items,
+    }: {
+      defaultActiveKey?: string;
+      items: Array<{ key: string; label: ReactNode; children: ReactNode }>;
+    }) => {
+      const [activeKey, setActiveKey] = useState(
+        defaultActiveKey ?? items[0]?.key,
+      );
+      return (
+        <div>
+          <div role="tablist">
+            {items.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={activeKey === item.key}
+                className="ant-tabs-tab-btn"
+                onClick={() => setActiveKey(item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+          {items.find((item) => item.key === activeKey)?.children}
+        </div>
+      );
+    },
+  };
+});
 import ComplaintRiskConfigPage, {
+  normalizeSummaryPrompt,
   normalizeRiskTypes,
   removeRiskTypeById,
   upsertRiskType,
   validateConfiguration,
 } from ".";
 import { createInitialComplaintRiskConfig } from "../../../api/mock/complaintRiskConfig";
+import { aiConfigApi } from "../../../api/client";
+import { server } from "../../../test/server";
 
 describe("complaint risk type configuration validation", () => {
+  it("拒绝空白总结提示词并在保存前清理首尾空格", () => {
+    const blankPrompt = createInitialComplaintRiskConfig();
+    blankPrompt.summaryPrompt = "   ";
+
+    expect(validateConfiguration(blankPrompt)).toBe("AI 总结提示词不能为空");
+    expect(normalizeSummaryPrompt("  只总结待处理风险。  ")).toBe(
+      "只总结待处理风险。",
+    );
+  });
+
   it("拒绝空配置、重复类型、非法关键词和非法案例", () => {
     const noTypes = createInitialComplaintRiskConfig();
     noTypes.riskTypes = [];
@@ -115,6 +223,18 @@ describe("ComplaintRiskConfigPage", () => {
     render(<ComplaintRiskConfigPage />);
 
     expect(await screen.findByText("风险类型配置（3）")).toBeTruthy();
+    expect(
+      screen
+        .getByText("风险类型配置", { selector: ".ant-tabs-tab-btn" })
+        .closest('[role="tab"]')
+        ?.getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(
+      screen.getByText("AI 总结提示词", {
+        selector: ".ant-tabs-tab-btn",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("AI 总结提示词")).toBeNull();
     expect(screen.queryByText("生效方式")).toBeNull();
     expect(screen.queryByText("最近更新")).toBeNull();
     expect(screen.queryByText("即时生效")).toBeNull();
@@ -141,5 +261,84 @@ describe("ComplaintRiskConfigPage", () => {
     expect(screen.queryByRole("button", { name: "发布配置" })).toBeNull();
     expect(screen.queryByText("当前生效版本")).toBeNull();
     expect(screen.queryByText("当前草稿")).toBeNull();
+  }, 15_000);
+
+  it("校验、清理并即时保存 AI 总结提示词", async () => {
+    const user = userEvent.setup();
+    render(<ComplaintRiskConfigPage />);
+
+    await user.click(
+      await screen.findByText("AI 总结提示词", {
+        selector: ".ant-tabs-tab-btn",
+      }),
+    );
+
+    const promptInput = (await screen.findByRole("textbox", {
+      name: "AI 总结提示词",
+    })) as HTMLTextAreaElement;
+    const saveButton = screen.getByRole("button", { name: "保存提示词" });
+    expect(promptInput.value).toBe(
+      createInitialComplaintRiskConfig().summaryPrompt,
+    );
+    expect(saveButton.hasAttribute("disabled")).toBe(true);
+
+    await user.clear(promptInput);
+    await user.click(saveButton);
+    expect(await screen.findByText("AI 总结提示词不能为空")).toBeTruthy();
+
+    await user.type(promptInput, "  只总结当前仍待处理的风险。  ");
+    await user.click(
+      screen.getByText("风险类型配置", { selector: ".ant-tabs-tab-btn" }),
+    );
+    await user.click(
+      screen.getByText("AI 总结提示词", {
+        selector: ".ant-tabs-tab-btn",
+      }),
+    );
+    const restoredPromptInput = screen.getByRole("textbox", {
+      name: "AI 总结提示词",
+    }) as HTMLTextAreaElement;
+    const restoredSaveButton = screen.getByRole("button", {
+      name: "保存提示词",
+    });
+    expect(restoredPromptInput.value).toBe("  只总结当前仍待处理的风险。  ");
+    await user.click(restoredSaveButton);
+    expect(
+      await screen.findByText("AI 总结提示词已更新并即时生效"),
+    ).toBeTruthy();
+    expect(restoredPromptInput.value).toBe("只总结当前仍待处理的风险。");
+    expect(restoredSaveButton.hasAttribute("disabled")).toBe(true);
+
+    const activeConfig = await aiConfigApi.getComplaintRiskConfig();
+    expect(activeConfig.summaryPrompt).toBe("只总结当前仍待处理的风险。");
+    expect(activeConfig.riskTypes).toHaveLength(3);
+  });
+
+  it("保存失败时保留尚未提交的提示词", async () => {
+    server.use(
+      http.patch("*/api/v1/ai-config/complaint-risk", () =>
+        HttpResponse.json({}, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<ComplaintRiskConfigPage />);
+
+    await user.click(
+      await screen.findByText("AI 总结提示词", {
+        selector: ".ant-tabs-tab-btn",
+      }),
+    );
+
+    const promptInput = (await screen.findByRole("textbox", {
+      name: "AI 总结提示词",
+    })) as HTMLTextAreaElement;
+    await user.clear(promptInput);
+    await user.type(promptInput, "保存失败后仍保留的提示词");
+    await user.click(screen.getByRole("button", { name: "保存提示词" }));
+
+    expect(
+      await screen.findByText("AI 总结提示词更新失败，请重试"),
+    ).toBeTruthy();
+    expect(promptInput.value).toBe("保存失败后仍保留的提示词");
   });
 });

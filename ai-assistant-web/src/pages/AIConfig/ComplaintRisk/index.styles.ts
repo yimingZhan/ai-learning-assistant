@@ -21,6 +21,17 @@ export const useComplaintRiskConfigStyles = createStyles(({ css, token }) => ({
   loadingState: css`
     min-height: 360px;
   `,
+  tabContent: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${token.marginMD}px;
+    min-width: 0;
+  `,
+  promptCard: css`
+    .ant-typography {
+      margin-bottom: ${token.marginSM}px;
+    }
+  `,
   referenceList: css`
     margin: 0;
     padding-inline-start: ${token.paddingLG}px;

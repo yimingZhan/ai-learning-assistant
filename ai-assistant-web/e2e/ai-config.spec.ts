@@ -40,8 +40,39 @@ test("客诉预警配置支持维护风险类型并即时生效", async ({ page 
   await page.goto("/#/ai-config/complaint-risk");
 
   await expect(
-    page.getByText("AI 客诉预警配置", { exact: true }).first(),
+    page.getByText("客诉预警配置", { exact: true }).first(),
   ).toBeVisible();
+  const riskTypesTab = page.getByRole("tab", { name: "风险类型配置" });
+  const summaryPromptTab = page.getByRole("tab", { name: "AI 总结提示词" });
+  await expect(riskTypesTab).toHaveAttribute("aria-selected", "true");
+  await expect(summaryPromptTab).toHaveAttribute("aria-selected", "false");
+  await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "AI 总结提示词" }),
+  ).toHaveCount(0);
+
+  await summaryPromptTab.click();
+  await expect(page.getByText("系统提示词", { exact: true })).toBeVisible();
+  const summaryPrompt = page.getByRole("textbox", { name: "AI 总结提示词" });
+  const saveSummaryPrompt = page.getByRole("button", { name: "保存提示词" });
+  await expect(summaryPrompt).toHaveValue(
+    "你是 AI 客诉预警助手。请仅基于已提供的学生沟通记录、已识别的风险事件和处理状态生成风险总结。总结应客观、简洁，优先说明当前仍待处理的核心风险及其依据，不得补充数据中不存在的事实；对已排除或已处理的风险需明确区分，信息不足时直接说明需要人工核实。",
+  );
+  await expect(saveSummaryPrompt).toBeDisabled();
+
+  await summaryPrompt.fill("   ");
+  await saveSummaryPrompt.click();
+  await expect(page.getByText("AI 总结提示词不能为空", { exact: true })).toBeVisible();
+
+  await summaryPrompt.fill("  只总结当前仍待处理的客诉风险。  ");
+  await saveSummaryPrompt.click();
+  await expect(
+    page.getByText("AI 总结提示词已更新并即时生效", { exact: true }),
+  ).toBeVisible();
+  await expect(summaryPrompt).toHaveValue("只总结当前仍待处理的客诉风险。");
+  await expect(saveSummaryPrompt).toBeDisabled();
+
+  await riskTypesTab.click();
   await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
   await expect(page.getByText("生效方式", { exact: true })).toHaveCount(0);
   await expect(page.getByText("最近更新", { exact: true })).toHaveCount(0);
@@ -101,15 +132,20 @@ test("客诉预警配置支持维护风险类型并即时生效", async ({ page 
   await deleteConfirm.getByRole("button", { name: "确认删除" }).click();
   await expect(page.getByText("客诉", { exact: true })).toHaveCount(0);
 
-  const savedRiskTypeNames = await page.evaluate(async () => {
+  const savedConfig = await page.evaluate(async () => {
     const response = await fetch("/api/v1/ai-config/complaint-risk");
     const config = (await response.json()) as {
+      summaryPrompt: string;
       riskTypes: Array<{ name: string }>;
     };
-    return config.riskTypes.map((riskType) => riskType.name);
+    return {
+      summaryPrompt: config.summaryPrompt,
+      riskTypeNames: config.riskTypes.map((riskType) => riskType.name),
+    };
   });
-  expect(savedRiskTypeNames).toContain("费用异议");
-  expect(savedRiskTypeNames).not.toContain("客诉");
+  expect(savedConfig.summaryPrompt).toBe("只总结当前仍待处理的客诉风险。");
+  expect(savedConfig.riskTypeNames).toContain("费用异议");
+  expect(savedConfig.riskTypeNames).not.toContain("客诉");
 });
 
 test("侧边菜单可进入客诉预警配置", async ({ page }) => {
@@ -125,6 +161,20 @@ test("侧边菜单可进入客诉预警配置", async ({ page }) => {
 test("客诉预警配置在窄屏无版本管理且无页面级横向溢出", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 900 });
   await page.goto("/#/ai-config/complaint-risk");
+  const riskTypesTab = page.getByRole("tab", { name: "风险类型配置" });
+  const summaryPromptTab = page.getByRole("tab", { name: "AI 总结提示词" });
+  await expect(riskTypesTab).toBeVisible();
+  await expect(summaryPromptTab).toBeVisible();
+  await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
+  await summaryPromptTab.click();
+  await expect(
+    page.getByRole("textbox", { name: "AI 总结提示词" }),
+  ).toBeVisible();
+  const promptOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(promptOverflow).toBeLessThanOrEqual(1);
+  await riskTypesTab.click();
   await expect(page.getByText("风险类型配置（3）", { exact: true })).toBeVisible();
   await expect(page.getByText("生效方式", { exact: true })).toHaveCount(0);
   await expect(page.getByText("最近更新", { exact: true })).toHaveCount(0);

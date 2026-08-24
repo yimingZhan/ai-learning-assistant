@@ -2,8 +2,11 @@ import { createStyles } from "antd-style";
 
 export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
   drawerBody: css`
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     padding: ${token.padding}px;
+    overflow-x: hidden;
 
     @media (max-width: 768px) {
       padding: ${token.paddingSM}px;
@@ -13,184 +16,292 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: ${token.margin}px;
+    gap: ${token.marginLG}px;
   `,
-  eventsBody: css`
-    min-width: 0;
-  `,
-  statusFilter: css`
-    width: 120px;
-  `,
-  overviewBody: css`
+  summarySection: css`
     display: flex;
     min-width: 0;
     flex-direction: column;
     gap: ${token.margin}px;
+    padding-bottom: ${token.paddingLG}px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
   `,
-  overviewRow: css`
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: ${token.margin}px;
-
-    > .ant-typography:first-child {
-      flex: 0 0 auto;
-      color: ${token.colorTextSecondary};
-    }
-  `,
-  eventsTimeline: css`
-    margin: 0;
-
-    .ant-timeline-item:last-child {
-      padding-bottom: 0;
-    }
-
-    .ant-timeline-item-content {
-      min-width: 0;
-    }
-
-    .ant-timeline-item-title {
-      white-space: nowrap;
-    }
-  `,
-  timelineDate: css`
-    color: ${token.colorTextHeading};
-    font-size: ${token.fontSizeLG}px;
-    font-weight: ${token.fontWeightStrong};
-    line-height: ${token.lineHeightLG};
-    letter-spacing: 0.2px;
-    font-variant-numeric: tabular-nums;
-  `,
-  timelineEventList: css`
-    display: flex;
+  summaryHeader: css`
     min-width: 0;
-    flex-direction: column;
-    gap: ${token.margin}px;
   `,
-  riskTypeCard: css`
-    min-width: 0;
-
-    > .ant-card-body {
-      display: flex;
-      min-width: 0;
-      flex-direction: column;
-      gap: ${token.margin}px;
-    }
-  `,
-  riskTypeHeader: css`
+  studentIdentity: css`
     display: flex;
     min-width: 0;
     align-items: baseline;
-    gap: ${token.margin}px;
-    padding-bottom: ${token.paddingSM}px;
-    border-bottom: 1px solid ${token.colorBorderSecondary};
+    gap: ${token.marginSM}px;
   `,
-  riskTypeValue: css`
-    min-width: 0;
+  studentName: css`
     color: ${token.colorTextHeading};
-    font-size: ${token.fontSizeLG}px;
-    line-height: ${token.lineHeightLG};
-    overflow-wrap: anywhere;
+    font-size: ${token.fontSizeHeading4}px;
+    line-height: ${token.lineHeightHeading4};
   `,
-  riskSummary: css`
+  studentNumber: css`
+    font-variant-numeric: tabular-nums;
+  `,
+  overallRiskTag: css`
+    margin-inline-end: 0;
+  `,
+  summaryDescriptions: css`
     min-width: 0;
-  `,
-  riskMetaRow: css`
-    display: flex;
-    flex-wrap: wrap;
-    gap: ${token.marginLG}px;
-  `,
-  riskMetaItem: css`
-    display: flex;
-    align-items: center;
-    gap: ${token.marginXS}px;
-  `,
-  riskMetaValue: css`
-    min-width: 0;
-  `,
-  riskKeywordRow: css`
-    display: flex;
-    min-width: 0;
-    align-items: flex-start;
-    gap: ${token.marginXS}px;
 
-    > .ant-typography {
-      flex: 0 0 auto;
+    .ant-descriptions-view table {
+      width: 100%;
+      table-layout: fixed;
     }
 
-    > .ant-space {
-      min-width: 0;
-    }
-  `,
-  eventActions: css`
-    display: flex;
-    flex-wrap: wrap;
-    gap: ${token.marginXS}px;
-    padding-top: ${token.paddingXS}px;
-    border-top: 1px solid ${token.colorBorderSecondary};
-  `,
-  riskSummaryText: css`
-    margin: ${token.marginXS}px 0 0 !important;
-    color: ${token.colorText};
-    line-height: ${token.lineHeightLG};
-    overflow-wrap: anywhere;
-  `,
-  evidenceCollapse: css`
-    min-width: 0;
-    background: ${token.colorBgContainer};
-
-    > .ant-collapse-item > .ant-collapse-header {
-      align-items: center;
-    }
-
-    .ant-collapse-content-box {
-      padding: ${token.padding}px !important;
-      background: ${token.colorFillQuaternary};
-    }
-  `,
-  evidenceCollapseLabel: css`
-    min-width: 0;
-
-    .ant-tag {
-      margin-inline-end: 0;
+    .ant-descriptions-item-label {
       color: ${token.colorTextSecondary};
+      white-space: nowrap;
+    }
+
+    .ant-descriptions-item-content {
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
   `,
-  evidenceList: css`
+  riskStats: css`
     display: flex;
     min-width: 0;
     flex-direction: column;
     gap: ${token.marginSM}px;
+    padding: ${token.paddingSM}px ${token.padding}px;
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorFillQuaternary};
   `,
-  evidenceBlock: css`
+  riskStatRow: css`
+    display: flex;
     min-width: 0;
-    border-color: ${token.colorBorderSecondary};
+    align-items: flex-start;
+    gap: ${token.margin}px;
 
-    > .ant-card-body {
-      display: flex;
-      min-width: 0;
+    .ant-tag {
+      margin-inline-end: 0;
+    }
+
+    @media (max-width: 576px) {
       flex-direction: column;
-      gap: ${token.marginSM}px;
+      gap: ${token.marginXS}px;
     }
   `,
-  evidenceSummary: css`
+  riskStatLabel: css`
+    flex: 0 0 56px;
+
+    @media (max-width: 576px) {
+      flex-basis: auto;
+    }
+  `,
+  eventsSection: css`
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: ${token.margin}px;
+  `,
+  eventsHeader: css`
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.margin}px;
+  `,
+  statusFilter: css`
+    width: 120px;
+  `,
+  riskTable: css`
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+
+    .ant-table-wrapper,
+    .ant-spin-nested-loading,
+    .ant-spin-container,
+    .ant-table,
+    .ant-table-container {
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .ant-table-content {
+      overflow-x: auto !important;
+      overscroll-behavior-inline: contain;
+    }
+
+    .ant-table-cell {
+      vertical-align: top;
+    }
+
+    .ant-table-cell .ant-tag {
+      margin-inline-end: 0;
+      white-space: nowrap;
+    }
+
+    .ant-pagination {
+      margin-bottom: 0;
+    }
+  `,
+  tableDate: css`
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  `,
+  tableSummary: css`
+    min-width: 0;
+    margin-bottom: 0 !important;
+    color: ${token.colorText};
+    line-height: ${token.lineHeightLG};
+    overflow-wrap: anywhere;
+  `,
+  tableKeywords: css`
+    display: flex;
+    max-height: 48px;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: ${token.marginXXS}px;
+    overflow: hidden;
+
+    .ant-tag {
+      max-width: 100%;
+      margin-inline-end: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  `,
+  evidenceNumber: css`
+    font-variant-numeric: tabular-nums;
+  `,
+  tableOperations: css`
+    white-space: nowrap;
+
+    .ant-btn-link {
+      padding-inline: ${token.paddingXS}px;
+    }
+  `,
+  eventDrawerBody: css`
+    min-width: 0;
+    padding: ${token.paddingLG}px;
+
+    @media (max-width: 576px) {
+      padding: ${token.padding}px;
+    }
+  `,
+  eventDetails: css`
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: ${token.marginLG}px;
+  `,
+  eventDescriptions: css`
+    min-width: 0;
+
+    .ant-descriptions-view table {
+      width: 100%;
+      table-layout: fixed;
+    }
+
+    .ant-descriptions-item-label {
+      color: ${token.colorTextSecondary};
+      white-space: nowrap;
+    }
+
+    .ant-descriptions-item-content {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .ant-tag {
+      margin-inline-end: 0;
+    }
+  `,
+  detailSection: css`
+    min-width: 0;
+  `,
+  detailRow: css`
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: ${token.margin}px;
+
+    .ant-tag {
+      margin-inline-end: 0;
+    }
+
+    @media (max-width: 576px) {
+      flex-direction: column;
+      gap: ${token.marginXS}px;
+    }
+  `,
+  detailLabel: css`
+    flex: 0 0 auto;
+  `,
+  detailContent: css`
+    min-width: 0;
+  `,
+  detailParagraph: css`
+    margin: ${token.marginXS}px 0 0 !important;
+    color: ${token.colorText};
+    line-height: ${token.lineHeightLG};
+    overflow-wrap: anywhere;
+  `,
+  auditDescriptions: css`
     min-width: 0;
     padding: ${token.paddingSM}px ${token.padding}px;
     border-radius: ${token.borderRadius}px;
-    background: ${token.colorBgContainer};
+    background: ${token.colorFillQuaternary};
+
+    .ant-descriptions-item-label {
+      color: ${token.colorTextSecondary};
+    }
   `,
-  evidenceSummaryText: css`
-    margin: ${token.marginXS}px 0 0 !important;
-    color: ${token.colorText};
-    font-size: ${token.fontSize}px;
-    line-height: ${token.lineHeightLG};
-    overflow-wrap: anywhere;
+  evidenceHeading: css`
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: ${token.marginXS}px;
+    padding-top: ${token.paddingXS}px;
+    border-top: 1px solid ${token.colorBorderSecondary};
+  `,
+  evidenceList: css`
+    min-width: 0;
+
+    .ant-list-items {
+      min-width: 0;
+    }
+  `,
+  evidenceItem: css`
+    min-width: 0;
+    padding: ${token.padding}px 0 !important;
+    align-items: stretch !important;
+  `,
+  evidenceItemBody: css`
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    gap: ${token.marginSM}px;
+  `,
+  evidenceItemHeader: css`
+    min-width: 0;
+
+    .ant-btn {
+      flex: 0 0 auto;
+      padding-inline: 0;
+    }
+  `,
+  evidenceItemTitle: css`
+    min-width: 0;
+
+    .ant-tag {
+      margin-inline-end: 0;
+    }
   `,
   keyQuotes: css`
     min-width: 0;
     padding: ${token.paddingSM}px ${token.padding}px;
     border-radius: ${token.borderRadius}px;
-    background: ${token.colorBgContainer};
+    background: ${token.colorFillQuaternary};
   `,
   keyQuoteList: css`
     display: flex;
@@ -203,6 +314,7 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
   `,
   keyQuoteItem: css`
     display: flex;
+    min-width: 0;
     flex-wrap: wrap;
     align-items: baseline;
     gap: ${token.marginXS}px;
@@ -219,39 +331,15 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
   `,
   evidenceMeta: css`
     min-width: 0;
-    color: ${token.colorTextSecondary};
     font-size: ${token.fontSizeSM}px;
-
-    .ant-divider-vertical {
-      margin-inline: 0;
-    }
 
     @media (max-width: 576px) {
       align-items: flex-start;
-
-      .ant-divider-vertical {
-        display: none;
-      }
 
       > * {
         flex-basis: 100%;
       }
     }
-  `,
-  actionRow: css`
-    display: flex;
-    flex-wrap: wrap;
-    gap: ${token.marginXS}px;
-
-    .ant-btn {
-      padding-inline: 0;
-    }
-  `,
-  emptyEvidence: css`
-    padding: ${token.paddingSM}px ${token.padding}px;
-    border: 1px dashed ${token.colorBorder};
-    border-radius: ${token.borderRadius}px;
-    background: ${token.colorFillQuaternary};
   `,
   nestedDrawerBody: css`
     padding: ${token.paddingLG}px;
@@ -276,27 +364,5 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     align-items: center;
     justify-content: space-between;
     gap: ${token.marginXS}px;
-  `,
-  transcript: css`
-    margin-top: ${token.marginLG}px;
-    line-height: ${token.lineHeightLG};
-    white-space: pre-line;
-    overflow-wrap: anywhere;
-  `,
-  learningDetails: css`
-    .ant-descriptions-item-label {
-      width: 140px;
-      color: ${token.colorTextSecondary};
-    }
-
-    .ant-descriptions-item-content {
-      overflow-wrap: anywhere;
-    }
-
-    @media (max-width: 576px) {
-      .ant-descriptions-item-label {
-        width: 112px;
-      }
-    }
   `,
 }));

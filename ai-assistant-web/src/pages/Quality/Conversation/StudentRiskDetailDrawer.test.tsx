@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactElement, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StudentRiskDetail } from "./StudentRiskDetailDrawer";
 import { riskStudentDetails } from "./riskData";
@@ -27,6 +27,17 @@ Object.assign(linExcludedDetail.eventGroups[0].events[0], {
   excludedBy: "周欣",
   excludedAt: "2026-08-09 12:30:00",
 });
+const paginatedDetail = structuredClone(linFollowDetail);
+paginatedDetail.eventGroups = Array.from({ length: 11 }, (_, index) => ({
+  date: `2026-08-${String(20 - index).padStart(2, "0")}`,
+  events: [
+    {
+      ...structuredClone(linFollowDetail.eventGroups[0].events[0]),
+      id: `pagination-event-${index}`,
+      riskSummary: `分页风险事件 ${index + 1}`,
+    },
+  ],
+}));
 
 afterEach(cleanup);
 
@@ -72,51 +83,151 @@ vi.mock("antd", async () => {
       ),
     },
   );
+  const MockTable = ({
+    columns = [],
+    dataSource = [],
+    pagination,
+    rowKey = "key",
+    className,
+    locale,
+    "aria-label": ariaLabel,
+  }: {
+    columns?: Array<{
+      key?: string;
+      title?: ReactNode;
+      dataIndex?: string;
+      render?: (
+        value: unknown,
+        row: Record<string, unknown>,
+        index: number,
+      ) => ReactNode;
+    }>;
+    dataSource?: Array<Record<string, unknown>>;
+    pagination?: {
+      current?: number;
+      pageSize?: number;
+      onChange?: (page: number) => void;
+    };
+    rowKey?: string;
+    className?: string;
+    locale?: { emptyText?: ReactNode };
+    "aria-label"?: string;
+  }) => {
+    const current = pagination?.current ?? 1;
+    const pageSize = pagination?.pageSize ?? dataSource.length;
+    const visibleRows = dataSource.slice(
+      (current - 1) * pageSize,
+      current * pageSize,
+    );
+    const lastPage = Math.max(1, Math.ceil(dataSource.length / pageSize));
+
+    return (
+      <div className={className}>
+        <table aria-label={ariaLabel}>
+          <thead>
+            <tr>
+              {columns.map((column, index) => (
+                <th key={column.key ?? index}>{column.title}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRows.length ? (
+              visibleRows.map((row, rowIndex) => (
+                <tr key={String(row[rowKey])}>
+                  {columns.map((column, columnIndex) => (
+                    <td key={column.key ?? columnIndex}>
+                      {column.render
+                        ? column.render(
+                            column.dataIndex
+                              ? row[column.dataIndex]
+                              : undefined,
+                            row,
+                            rowIndex,
+                          )
+                        : column.dataIndex
+                          ? String(row[column.dataIndex] ?? "")
+                          : null}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={columns.length}>{locale?.emptyText}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {dataSource.length > pageSize ? (
+          <div className="ant-pagination-next">
+            <button
+              type="button"
+              aria-label="下一页"
+              disabled={current >= lastPage}
+              onClick={() => pagination?.onChange?.(current + 1)}
+            >
+              下一页
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
   return {
     ...actual,
     List: MockList,
-    Collapse: ({
-      items,
-      className,
+    Table: MockTable,
+    Dropdown: ({
+      menu,
+      children,
     }: {
-      items?: Array<{ key: string; label: ReactNode; children: ReactNode }>;
-      className?: string;
+      menu: {
+        items?: Array<{
+          key: string;
+          label: ReactNode;
+          danger?: boolean;
+          disabled?: boolean;
+        }>;
+        onClick?: (info: {
+          key: string;
+          domEvent: MouseEvent<HTMLButtonElement>;
+        }) => void;
+      };
+      children: ReactElement<{
+        onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+      }>;
     }) => {
-      const [openKeys, setOpenKeys] = React.useState<string[]>([]);
+      const [open, setOpen] = React.useState(false);
       return (
-        <div className={className}>
-          {items?.map((item) => {
-            const open = openKeys.includes(item.key);
-            return (
-              <div key={item.key}>
+        <div>
+          {React.cloneElement(children, {
+            onClick: (event: MouseEvent<HTMLButtonElement>) => {
+              children.props.onClick?.(event);
+              setOpen((current) => !current);
+            },
+          })}
+          {open ? (
+            <div role="menu">
+              {menu.items?.map((item) => (
                 <button
+                  key={item.key}
                   type="button"
-                  aria-expanded={open}
-                  onClick={() => setOpenKeys(open ? [] : [item.key])}
+                  role="menuitem"
+                  disabled={item.disabled}
+                  onClick={(event) => {
+                    menu.onClick?.({ key: item.key, domEvent: event });
+                    setOpen(false);
+                  }}
                 >
                   {item.label}
                 </button>
-                {open ? item.children : null}
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          ) : null}
         </div>
       );
     },
-    Timeline: ({
-      items,
-    }: {
-      items?: Array<{ title?: ReactNode; content: ReactNode }>;
-    }) => (
-      <div>
-        {items?.map((item, index) => (
-          <section key={index}>
-            <div data-timeline-title>{item.title}</div>
-            {item.content}
-          </section>
-        ))}
-      </div>
-    ),
     Select: ({
       value,
       onChange,
@@ -189,128 +300,185 @@ vi.mock("antd", async () => {
   };
 });
 
-function getEvidenceToggles() {
-  return screen.getAllByRole("button", { name: /来源证据/ });
+function openRiskDetail(name = "跟进及时性") {
+  const row = screen.getAllByRole("row", { name: new RegExp(name) })[0];
+  fireEvent.click(within(row).getByRole("button", { name: "详情" }));
+}
+
+function openRiskMenu(name = "跟进及时性") {
+  fireEvent.click(
+    screen.getByRole("button", { name: `更多操作 ${name}` }),
+  );
 }
 
 describe("StudentRiskDetail", () => {
-  it("展示完整风险概览、状态和默认全部事件", () => {
+  it("保留学生摘要并将全部风险展示为包含关键词的标准表格", () => {
     const { container } = render(<StudentRiskDetail detail={linDetail} />);
     const detailContent = container.querySelector(
       ".student-risk-detail-content",
     ) as HTMLElement;
-    const overview = within(detailContent).getByRole("region", {
-      name: "风险事件概览",
+    const summary = within(detailContent).getByRole("region", {
+      name: "学生风险摘要",
     });
     const events = within(detailContent).getByRole("region", {
       name: "风险详情",
     });
+    const riskStats = within(events).getByRole("group", {
+      name: "风险统计",
+    });
 
-    expect(within(overview).getByText("高风险 × 2")).toBeTruthy();
-    expect(within(overview).getByText("中风险 × 2")).toBeTruthy();
-    expect(within(overview).getByText("低风险 × 1")).toBeTruthy();
-    expect(within(overview).getByText("跟进及时性 × 2")).toBeTruthy();
-    expect(within(overview).getByText("退费 × 1")).toBeTruthy();
-    expect(within(overview).getByText("客诉 × 2")).toBeTruthy();
+    expect(within(summary).getByText("林家宁", { exact: true })).toBeTruthy();
+    expect(within(summary).getByText("S2026001", { exact: true })).toBeTruthy();
+    expect(within(summary).getByText("12年级", { exact: true })).toBeTruthy();
+    expect(within(summary).queryByText("高风险 × 2")).toBeNull();
+    expect(within(riskStats).getByText("高风险 × 2")).toBeTruthy();
+    expect(within(riskStats).getByText("中风险 × 2")).toBeTruthy();
+    expect(within(riskStats).getByText("低风险 × 1")).toBeTruthy();
+    expect(within(riskStats).getByText("跟进及时性 × 2")).toBeTruthy();
 
+    for (const column of [
+      "风险日期",
+      "风险类型",
+      "风险等级",
+      "风险总结",
+      "命中关键词",
+      "处理状态",
+      "证据数",
+      "操作",
+    ]) {
+      expect(within(events).getByRole("columnheader", { name: column })).toBeTruthy();
+    }
+    expect(within(events).getAllByRole("row")).toHaveLength(6);
+    expect(within(events).getAllByRole("button", { name: "详情" })).toHaveLength(5);
     expect(
-      [...events.querySelectorAll(".ant-tag")].filter(
-        (element) => element.textContent === "待处理",
-      ),
-    ).toHaveLength(4);
-    expect(
-      [...events.querySelectorAll(".ant-tag")].filter(
-        (element) => element.textContent === "已处理",
-      ),
-    ).toHaveLength(1);
-    expect(
-      within(events).getAllByRole("button", { name: "排除风险" }),
-    ).toHaveLength(4);
-    expect(
-      within(events).queryByText("风险类型", { exact: true }),
-    ).toBeNull();
-    expect(within(events).getByText("处理人", { exact: true })).toBeTruthy();
-    expect(within(events).getByText("周欣", { exact: true })).toBeTruthy();
-    expect(within(events).getByText("处理时间", { exact: true })).toBeTruthy();
-    expect(
-      within(events).getByText("2026-08-07 19:05", { exact: true }),
+      within(events).getByLabelText("命中关键词 找不到人、联系不上、未反馈"),
     ).toBeTruthy();
-    const riskDate = within(events).getByLabelText("风险日期 2026-08-09");
-    expect(riskDate.tagName).toBe("TIME");
-    expect(riskDate.closest("[data-timeline-title]")).toBeTruthy();
+    expect(within(events).queryByText("处理建议", { exact: true })).toBeNull();
     expect(screen.getByRole("combobox", { name: "风险状态筛选" })).toBeTruthy();
+    expect(
+      riskStats.compareDocumentPosition(
+        within(events).getByRole("table", { name: "风险事件表格" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
-  it("风险状态筛选仅过滤时间线且默认值为全部", async () => {
+  it("按日期倒序展示且同一天保持原有顺序", () => {
+    render(<StudentRiskDetail detail={linDetail} />);
+    const rows = within(screen.getByRole("region", { name: "风险详情" }))
+      .getAllByRole("row")
+      .slice(1);
+
+    expect(rows[0].textContent).toContain("2026-08-09");
+    expect(rows[0].textContent).toContain("跟进及时性");
+    expect(rows[1].textContent).toContain("2026-08-09");
+    expect(rows[1].textContent).toContain("退费");
+    expect(rows[2].textContent).toContain("2026-08-09");
+    expect(rows[2].textContent).toContain("客诉");
+    expect(rows[3].textContent).toContain("2026-08-08");
+    expect(rows[4].textContent).toContain("2026-08-07");
+  });
+
+  it("状态筛选仅过滤表格且顶部统计保持完整", async () => {
     const { container } = render(<StudentRiskDetail detail={linDetail} />);
-    const select = screen.getByRole("combobox", { name: "风险状态筛选" });
-    expect((select as HTMLSelectElement).value).toBe("all");
-    fireEvent.change(select, { target: { value: "resolved" } });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "风险状态筛选" }),
+      { target: { value: "resolved" } },
+    );
 
     const events = within(
       container.querySelector(".student-risk-detail-content") as HTMLElement,
     ).getByRole("region", { name: "风险详情" });
-    await waitFor(() =>
-      expect(within(events).getByText("客诉", { exact: true })).toBeTruthy(),
-    );
+    await waitFor(() => expect(within(events).getAllByRole("row")).toHaveLength(2));
     expect(
-      within(events).queryByRole("button", { name: "排除风险" }),
-    ).toBeNull();
+      within(events).getAllByText("已处理", { exact: true }),
+    ).toHaveLength(2);
+    expect(within(events).queryByRole("button", { name: /更多操作/ })).toBeNull();
 
-    const overview = within(
-      container.querySelector(".student-risk-detail-content") as HTMLElement,
-    ).getByRole("region", { name: "风险事件概览" });
-    expect(within(overview).getByText("跟进及时性 × 2")).toBeTruthy();
+    const stats = within(events).getByRole("group", { name: "风险统计" });
+    expect(within(stats).getByText("跟进及时性 × 2")).toBeTruthy();
   });
 
-  it("命中关键词独占一行并展示在风险总结上方", () => {
+  it("详情抽屉完整展示事件信息、建议、关键词和证据", () => {
     render(<StudentRiskDetail detail={linFollowDetail} />);
+    openRiskDetail();
 
-    const keywordLabel = screen.getByText("命中关键词", { exact: true });
-    const keywordRow = keywordLabel.parentElement as HTMLElement;
-    const summaryLabel = screen.getByText("风险总结", { exact: true });
-
+    const drawer = screen.getByRole("dialog", {
+      name: "2026-08-09 · 跟进及时性风险详情",
+    });
+    expect(within(drawer).getByText("2026-08-09", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("高风险", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("待处理", { exact: true })).toBeTruthy();
     expect(
-      keywordRow.contains(screen.getByText("找不到人", { exact: true })),
-    ).toBe(true);
-    expect(within(keywordRow).queryByText("风险等级", { exact: true })).toBeNull();
-    expect(summaryLabel.parentElement?.previousElementSibling).toBe(keywordRow);
-  });
-
-  it("展开来源证据后展示单聊、群聊名称和第一条原文时间", () => {
-    render(<StudentRiskDetail detail={linFollowDetail} />);
-    expect(getEvidenceToggles()).toHaveLength(1);
-
-    fireEvent.click(getEvidenceToggles()[0]);
-    expect(screen.getAllByText("企微单聊 × 1", { exact: true }).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("企微群聊 × 1", { exact: true }).length).toBeGreaterThan(0);
-    expect(screen.getByText("群聊名称：林家宁服务沟通群")).toBeTruthy();
-    expect(screen.getByText("沟通时间：2026-08-09 09:12")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "家长：“我找不到负责的老师，这两天一直联系不上。”",
-        { exact: true },
+      within(drawer).getByText(
+        "家长连续反馈找不到负责人、联系不上且未按约定收到反馈。",
       ),
     ).toBeTruthy();
+    expect(within(drawer).getByText("找不到人", { exact: true })).toBeTruthy();
+    expect(
+      within(drawer).getByText(
+        "立即确认唯一负责人和反馈时点，并在群内逐项闭环未回复事项。",
+      ),
+    ).toBeTruthy();
+    expect(within(drawer).getByText("企微单聊", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("企微群聊", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("群聊名称：林家宁服务沟通群")).toBeTruthy();
+    expect(within(drawer).getByText("沟通时间：2026-08-09 09:12")).toBeTruthy();
+  });
+
+  it("详情抽屉可继续打开企微群聊完整聊天", () => {
+    render(<StudentRiskDetail detail={linFollowDetail} />);
+    openRiskDetail();
+    const detailDrawer = screen.getByRole("dialog", {
+      name: "2026-08-09 · 跟进及时性风险详情",
+    });
+    fireEvent.click(
+      within(detailDrawer).getAllByText("查看完整聊天", { exact: true })[1],
+    );
+
+    const chatDrawer = screen.getByRole("dialog", {
+      name: "2026-08-09 · 跟进及时性 · 完整聊天",
+    });
+    expect(within(chatDrawer).getByText("林家宁服务沟通群", { exact: true })).toBeTruthy();
+    expect(within(chatDrawer).getAllByText("周欣", { exact: true }).length).toBeGreaterThan(0);
   });
 
   it(
-    "企微群聊完整聊天继续展示群聊名称",
-    () => {
-      render(<StudentRiskDetail detail={linFollowDetail} />);
-      fireEvent.click(getEvidenceToggles()[0]);
-      fireEvent.click(
-        screen.getAllByText("查看完整聊天", { exact: true })[1],
+    "超过十条时分页，切换筛选后回到第一页并关闭详情",
+    async () => {
+      const { container } = render(
+        <StudentRiskDetail detail={paginatedDetail} />,
       );
+      expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(10);
+      openRiskDetail();
+      expect(screen.getByRole("dialog", { name: /风险详情/ })).toBeTruthy();
 
-      expect(
-        screen.getByText("林家宁服务沟通群", { exact: true }),
-      ).toBeTruthy();
-      expect(screen.getAllByText("周欣", { exact: true }).length).toBeGreaterThan(
-        0,
+      const nextPageButton = container.querySelector(
+        ".ant-pagination-next button",
+      ) as HTMLButtonElement;
+      expect(nextPageButton).toBeTruthy();
+      fireEvent.click(nextPageButton);
+      await waitFor(() =>
+        expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(1),
       );
+      expect(
+        screen.getByText("分页风险事件 11", { exact: true }),
+      ).toBeTruthy();
+
+      fireEvent.change(
+        screen.getByRole("combobox", { name: "风险状态筛选" }),
+        { target: { value: "pending" } },
+      );
+      await waitFor(() =>
+        expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(
+          10,
+        ),
+      );
+      expect(screen.queryByRole("dialog", { name: /风险详情/ })).toBeNull();
+      expect(
+        screen.getByText("分页风险事件 1", { exact: true }),
+      ).toBeTruthy();
     },
-    10_000,
+    15_000,
   );
 
   it("排除风险弹窗取消不提交，确认后提交 excluded", async () => {
@@ -323,19 +491,17 @@ describe("StudentRiskDetail", () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "排除风险" })[0]);
+    openRiskMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "排除风险" }));
     const modal = screen.getByRole("dialog");
     expect(within(modal).getByText("确认排除该风险？")).toBeTruthy();
-    expect(
-      within(modal).getByText(/不再计入该学生的待处理风险数量/),
-    ).toBeTruthy();
-    expect(
-      within(modal).getByText("系统将以当前账号“周欣”记录本次操作。"),
-    ).toBeTruthy();
+    expect(within(modal).getByText(/不再计入该学生的待处理风险数量/)).toBeTruthy();
+    expect(within(modal).getByText("系统将以当前账号“周欣”记录本次操作。")).toBeTruthy();
     fireEvent.click(within(modal).getByRole("button", { name: "取消" }));
     expect(onUpdate).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "排除风险" })[0]);
+    openRiskMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "排除风险" }));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
         name: "确认排除",
@@ -346,19 +512,19 @@ describe("StudentRiskDetail", () => {
     );
   });
 
-  it("已排除风险卡片展示排除人和排除时间", () => {
+  it("已排除风险详情展示排除人和排除时间且无更多操作", () => {
     render(<StudentRiskDetail detail={linExcludedDetail} />);
-    const events = screen.getByRole("region", { name: "风险详情" });
+    expect(screen.queryByRole("button", { name: /更多操作/ })).toBeNull();
+    openRiskDetail();
+    const drawer = screen.getByRole("dialog", { name: /风险详情/ });
 
-    expect(within(events).getByText("排除人", { exact: true })).toBeTruthy();
-    expect(within(events).getByText("周欣", { exact: true })).toBeTruthy();
-    expect(within(events).getByText("排除时间", { exact: true })).toBeTruthy();
-    expect(
-      within(events).getByText("2026-08-09 12:30", { exact: true }),
-    ).toBeTruthy();
+    expect(within(drawer).getByText("排除人", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("周欣", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("排除时间", { exact: true })).toBeTruthy();
+    expect(within(drawer).getByText("2026-08-09 12:30", { exact: true })).toBeTruthy();
   });
 
-  it("已处理风险弹窗确认后提交 resolved", async () => {
+  it("标记为已处理后提交 resolved", async () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     render(
       <StudentRiskDetail
@@ -368,16 +534,10 @@ describe("StudentRiskDetail", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "已处理风险" })[0],
-    );
+    openRiskMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "标记为已处理" }));
     const modal = screen.getByRole("dialog");
-    expect(
-      within(modal).getByText("确认标记该风险为已处理？"),
-    ).toBeTruthy();
-    expect(
-      within(modal).getByText("系统将以当前账号“周欣”记录本次操作。"),
-    ).toBeTruthy();
+    expect(within(modal).getByText("确认标记该风险为已处理？")).toBeTruthy();
     fireEvent.click(within(modal).getByRole("button", { name: "确认已处理" }));
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith("lin-event-follow-0809", "resolved"),
@@ -393,16 +553,13 @@ describe("StudentRiskDetail", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "已处理风险" })[0],
-    );
+    openRiskMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "标记为已处理" }));
     const modal = screen.getByRole("dialog");
     fireEvent.click(within(modal).getByRole("button", { name: "确认已处理" }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(
-      screen.getAllByRole("button", { name: "已处理风险" }),
-    ).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "更多操作 跟进及时性" })).toBeTruthy();
   });
 });
