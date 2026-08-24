@@ -106,6 +106,7 @@ vi.mock("antd", async () => {
     pagination?: {
       current?: number;
       pageSize?: number;
+      hideOnSinglePage?: boolean;
       onChange?: (page: number) => void;
     };
     rowKey?: string;
@@ -159,16 +160,20 @@ vi.mock("antd", async () => {
             )}
           </tbody>
         </table>
-        {dataSource.length > pageSize ? (
-          <div className="ant-pagination-next">
-            <button
-              type="button"
-              aria-label="下一页"
-              disabled={current >= lastPage}
-              onClick={() => pagination?.onChange?.(current + 1)}
-            >
-              下一页
-            </button>
+        {pagination &&
+        (!pagination.hideOnSinglePage || dataSource.length > pageSize) ? (
+          <div className="ant-pagination">
+            <span>{`${current} / ${lastPage}`}</span>
+            <div className="ant-pagination-next">
+              <button
+                type="button"
+                aria-label="下一页"
+                disabled={current >= lastPage}
+                onClick={() => pagination.onChange?.(current + 1)}
+              >
+                下一页
+              </button>
+            </div>
           </div>
         ) : null}
       </div>
@@ -356,6 +361,14 @@ describe("StudentRiskDetail", () => {
       within(events).queryByRole("columnheader", { name: "证据数" }),
     ).toBeNull();
     expect(within(events).getAllByRole("button", { name: "详情" })).toHaveLength(5);
+    expect(events.querySelector(".ant-pagination")).toBeTruthy();
+    expect(
+      (
+        within(events).getByRole("button", {
+          name: "下一页",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
     expect(
       within(events).getByLabelText("命中关键词 找不到人、联系不上、未反馈"),
     ).toBeTruthy();
@@ -449,7 +462,7 @@ describe("StudentRiskDetail", () => {
   });
 
   it(
-    "超过十条时分页，切换筛选后回到第一页并关闭详情",
+    "默认每页十条，切换筛选后回到第一页并关闭详情",
     async () => {
       const { container } = render(
         <StudentRiskDetail detail={paginatedDetail} />,

@@ -645,7 +645,7 @@ function EventsSection({
         pagination={{
           current: currentPage,
           pageSize: RISK_TABLE_PAGE_SIZE,
-          hideOnSinglePage: true,
+          hideOnSinglePage: false,
           showSizeChanger: false,
           onChange: onPageChange,
         }}
