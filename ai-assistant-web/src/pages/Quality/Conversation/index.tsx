@@ -104,7 +104,7 @@ export default function ComplaintWarningPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string>();
   const [studentDrawerOpen, setStudentDrawerOpen] = useState(false);
-  const [updatingEventId, setUpdatingEventId] = useState<string | null>(null);
+  const [updatingEventIds, setUpdatingEventIds] = useState<string[]>([]);
 
   const selection = useRiskStudentSelection(
     records,
@@ -170,31 +170,43 @@ export default function ComplaintWarningPage() {
   }, [records, requestedStudentId]);
 
   const updateEventStatus = async (
-    eventId: string,
+    eventIds: string[],
     status: Exclude<RiskEventStatus, "pending">,
   ) => {
-    if (!selectedStudentId) return;
-    setUpdatingEventId(eventId);
+    if (!selectedStudentId || !eventIds.length) return;
+    setUpdatingEventIds(eventIds);
     try {
-      const response = await complaintRiskApi.updateEventStatus(
-        selectedStudentId,
-        eventId,
-        status,
+      for (const eventId of eventIds) {
+        const response = await complaintRiskApi.updateEventStatus(
+          selectedStudentId,
+          eventId,
+          status,
+        );
+        setDetail(response.detail);
+        setRecords((current) =>
+          current.map((student) =>
+            student.id === response.student.id ? response.student : student,
+          ),
+        );
+      }
+      message.success(
+        eventIds.length > 1
+          ? `已批量${status === "excluded" ? "排除" : "标记已处理"} ${eventIds.length} 条风险`
+          : status === "excluded"
+            ? "风险已排除"
+            : "风险已标记为已处理",
       );
-      setDetail(response.detail);
-      setRecords((current) =>
-        current.map((student) =>
-          student.id === response.student.id ? response.student : student,
-        ),
-      );
-      message.success(status === "excluded" ? "风险已排除" : "风险已标记为已处理");
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "风险状态更新失败，请稍后重试",
+        error instanceof Error
+          ? error.message
+          : eventIds.length > 1
+            ? "批量处理未全部完成，请刷新后重试"
+            : "风险状态更新失败，请稍后重试",
       );
       throw error;
     } finally {
-      setUpdatingEventId(null);
+      setUpdatingEventIds([]);
     }
   };
 
@@ -258,7 +270,7 @@ export default function ComplaintWarningPage() {
               <StudentRiskDetail
                 detail={detail}
                 operatorName={currentUser?.name ?? "当前用户"}
-                updatingEventId={updatingEventId}
+                updatingEventIds={updatingEventIds}
                 onUpdateEventStatus={updateEventStatus}
               />
             </Spin>

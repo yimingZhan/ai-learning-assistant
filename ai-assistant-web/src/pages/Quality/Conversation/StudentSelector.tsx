@@ -193,8 +193,8 @@ export function StudentQueryBar({ selection }: StudentQueryBarProps) {
         form={form}
         className={styles.queryFilter}
         layout="vertical"
-        collapsed={false}
-        collapseRender={false}
+        defaultCollapsed
+        showHiddenNum
         labelWidth="auto"
         span={{ xs: 24, sm: 12, md: 8, lg: 6, xl: 6, xxl: 4 }}
         searchGutter={[16, 8]}

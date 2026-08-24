@@ -67,8 +67,25 @@ describe("StudentSelector", () => {
     expect(screen.queryByRole("option", { name: /林家宁/ })).toBeNull();
   });
 
-  it("六项筛选始终展开并通过查询按钮应用", async () => {
+  it("筛选项默认只展示一行，可展开全部六项并通过查询按钮应用", async () => {
     render(<StudentSelectorHarness />);
+
+    const formItemFor = (label: string) =>
+      screen.getByText(label, { exact: true }).closest(".ant-form-item");
+
+    for (const label of ["学生信息", "风险等级", "风险类型"]) {
+      expect(
+        formItemFor(label)?.classList.contains("ant-form-item-hidden"),
+      ).toBe(false);
+    }
+    for (const label of ["风险事件时间", "员工部门", "员工姓名"]) {
+      expect(
+        formItemFor(label)?.classList.contains("ant-form-item-hidden"),
+      ).toBe(true);
+    }
+    expect(screen.getByRole("button", { name: /查\s*询/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /重\s*置/ })).toBeTruthy();
+    fireEvent.click(screen.getByText(/展开/));
 
     for (const label of [
       "学生信息",
@@ -78,10 +95,11 @@ describe("StudentSelector", () => {
       "员工部门",
       "员工姓名",
     ]) {
-      expect(screen.getByText(label, { exact: true })).toBeTruthy();
+      expect(
+        formItemFor(label)?.classList.contains("ant-form-item-hidden"),
+      ).toBe(false);
     }
-    expect(screen.getByRole("button", { name: /查\s*询/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /重\s*置/ })).toBeTruthy();
+    expect(screen.getByText(/收起/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "排序" })).toBeNull();
     expect(screen.queryByRole("button", { name: "筛选" })).toBeNull();
 

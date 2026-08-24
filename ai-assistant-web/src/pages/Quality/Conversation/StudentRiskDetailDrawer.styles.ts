@@ -64,11 +64,9 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
   riskStats: css`
     display: flex;
     min-width: 0;
-    flex-direction: column;
-    gap: ${token.marginSM}px;
-    padding: ${token.paddingSM}px ${token.padding}px;
-    border-radius: ${token.borderRadius}px;
-    background: ${token.colorFillQuaternary};
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: ${token.marginSM}px ${token.marginXL}px;
   `,
   riskStatRow: css`
     display: flex;
@@ -107,6 +105,30 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
   `,
   statusFilter: css`
     width: 120px;
+  `,
+  batchToolbar: css`
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginSM}px;
+    padding: ${token.paddingSM}px ${token.padding}px;
+    border: 1px solid ${token.colorBorderSecondary};
+    border-radius: ${token.borderRadius}px;
+    background: ${token.colorFillQuaternary};
+
+    .ant-btn {
+      margin: 0;
+    }
+
+    @media (max-width: 576px) {
+      align-items: flex-start;
+
+      > .ant-space {
+        width: 100%;
+      }
+    }
   `,
   riskTable: css`
     width: 100%;
@@ -185,7 +207,26 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: ${token.marginLG}px;
+  `,
+  eventDetailSection: css`
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: ${token.margin}px;
+    margin-bottom: ${token.marginLG}px;
+    padding-bottom: ${token.paddingLG}px;
+    border-bottom: 1px solid ${token.colorBorderSecondary};
+
+    &:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+  `,
+  eventSectionTitle: css`
+    color: ${token.colorTextHeading};
+    font-size: ${token.fontSizeLG}px;
+    line-height: ${token.lineHeightLG};
   `,
   eventDescriptions: css`
     min-width: 0;
@@ -209,29 +250,16 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
       margin-inline-end: 0;
     }
   `,
-  detailSection: css`
+  summaryFields: css`
+    display: grid;
     min-width: 0;
-  `,
-  detailRow: css`
-    display: flex;
-    min-width: 0;
-    align-items: flex-start;
     gap: ${token.margin}px;
-
-    .ant-tag {
-      margin-inline-end: 0;
-    }
-
-    @media (max-width: 576px) {
-      flex-direction: column;
-      gap: ${token.marginXS}px;
-    }
+  `,
+  detailField: css`
+    min-width: 0;
   `,
   detailLabel: css`
-    flex: 0 0 auto;
-  `,
-  detailContent: css`
-    min-width: 0;
+    display: block;
   `,
   detailParagraph: css`
     margin: ${token.marginXS}px 0 0 !important;
@@ -239,29 +267,23 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     line-height: ${token.lineHeightLG};
     overflow-wrap: anywhere;
   `,
-  auditDescriptions: css`
-    min-width: 0;
-    padding: ${token.paddingSM}px ${token.padding}px;
-    border-radius: ${token.borderRadius}px;
-    background: ${token.colorFillQuaternary};
-
-    .ant-descriptions-item-label {
-      color: ${token.colorTextSecondary};
-    }
-  `,
-  evidenceHeading: css`
-    display: flex;
-    min-width: 0;
-    align-items: baseline;
-    gap: ${token.marginXS}px;
-    padding-top: ${token.paddingXS}px;
-    border-top: 1px solid ${token.colorBorderSecondary};
+  evidenceSection: css`
+    gap: 0;
   `,
   evidenceList: css`
     min-width: 0;
 
     .ant-list-items {
       min-width: 0;
+    }
+
+    .ant-list-item:first-child {
+      padding-top: ${token.padding}px !important;
+    }
+
+    .ant-list-item:last-child {
+      padding-bottom: 0 !important;
+      border-block-end: 0;
     }
   `,
   evidenceItem: css`
@@ -276,20 +298,9 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: ${token.marginSM}px;
   `,
-  evidenceItemHeader: css`
-    min-width: 0;
-
-    .ant-btn {
-      flex: 0 0 auto;
-      padding-inline: 0;
-    }
-  `,
-  evidenceItemTitle: css`
-    min-width: 0;
-
-    .ant-tag {
-      margin-inline-end: 0;
-    }
+  evidenceFieldLabel: css`
+    display: block;
+    font-size: ${token.fontSizeSM}px;
   `,
   keyQuotes: css`
     min-width: 0;
@@ -313,50 +324,32 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     align-items: baseline;
     gap: ${token.marginXS}px;
   `,
-  keyQuoteTime: css`
-    flex: 0 0 auto;
-    font-variant-numeric: tabular-nums;
-  `,
   keyQuoteContent: css`
     min-width: 0;
     color: ${token.colorText};
     line-height: ${token.lineHeightLG};
     overflow-wrap: anywhere;
   `,
-  evidenceMeta: css`
+  evidenceDescriptions: css`
     min-width: 0;
-    font-size: ${token.fontSizeSM}px;
 
-    @media (max-width: 576px) {
-      align-items: flex-start;
-
-      > * {
-        flex-basis: 100%;
-      }
-    }
-  `,
-  nestedDrawerBody: css`
-    padding: ${token.paddingLG}px;
-
-    @media (max-width: 576px) {
-      padding: ${token.padding}px;
-    }
-  `,
-  chatList: css`
-    .ant-list-item {
-      align-items: flex-start;
+    .ant-descriptions-view table {
+      width: 100%;
+      table-layout: fixed;
     }
 
-    .ant-list-item-meta-description {
-      color: ${token.colorText};
-      line-height: ${token.lineHeightLG};
+    .ant-descriptions-item-label {
+      color: ${token.colorTextSecondary};
+      white-space: nowrap;
     }
-  `,
-  chatTitle: css`
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${token.marginXS}px;
+
+    .ant-descriptions-item-content {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .ant-tag {
+      margin-inline-end: 0;
+    }
   `,
 }));
