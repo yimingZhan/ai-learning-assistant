@@ -178,6 +178,13 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
       text-overflow: ellipsis;
     }
   `,
+  tableSimilarSentences: css`
+    min-width: 0;
+    margin-bottom: 0 !important;
+    color: ${token.colorTextSecondary};
+    line-height: ${token.lineHeightLG};
+    overflow-wrap: anywhere;
+  `,
   tableOperations: css`
     white-space: nowrap;
 
@@ -238,6 +245,19 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
 
     .ant-tag {
       margin-inline-end: 0;
+    }
+  `,
+  similarSentenceList: css`
+    display: grid;
+    min-width: 0;
+    margin: 0;
+    padding-inline-start: ${token.padding}px;
+    gap: ${token.marginXXS}px;
+    color: ${token.colorText};
+    line-height: ${token.lineHeightLG};
+
+    li {
+      overflow-wrap: anywhere;
     }
   `,
   summaryFields: css`

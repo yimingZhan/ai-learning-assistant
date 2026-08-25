@@ -100,7 +100,7 @@ test("移动端依然对客诉预警隐藏 AI，并将帮助收入用户菜单",
   await expect(page.getByText("帮助与反馈", { exact: true })).toBeVisible();
 });
 
-test("筛选栏默认单行展示、支持展开，并与重置和学生分页联动", async ({
+test("筛选栏默认单行展示、支持展开，并与重置和学生状态联动", async ({
   page,
 }) => {
   const query = page.getByRole("region", { name: "客诉风险学生筛选" });
@@ -133,10 +133,22 @@ test("筛选栏默认单行展示、支持展开，并与重置和学生分页�
   await query.getByRole("button", { name: /重\s*置/ }).click();
   await expect(selector.getByRole("option", { name: /林家宁/ })).toBeVisible();
 
-  await selector.getByRole("tab", { name: "全部（6）" }).click();
-  await expect(selector.getByRole("option").first()).toHaveAccessibleName(
-    /林家宁/,
-  );
+  await expect(
+    selector.getByRole("tab", { name: "待处理（5）" }),
+  ).toBeVisible();
+  await expect(
+    selector.getByRole("tab", { name: "已处理（0）" }),
+  ).toBeVisible();
+  await expect(
+    selector.getByRole("tab", { name: "已排除（1）" }),
+  ).toBeVisible();
+  await expect(selector.getByRole("tab", { name: /全部/ })).toHaveCount(0);
+
+  await selector.getByRole("tab", { name: "已排除（1）" }).click();
+  await expect(
+    selector.getByRole("option", { name: /沈雨桐/ }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(selector.getByRole("option", { name: /林家宁/ })).toHaveCount(0);
 
   const pagination = selector.getByLabel("学生列表分页");
   await expect(pagination.locator(".ant-pagination-simple")).toBeVisible();
@@ -145,10 +157,6 @@ test("筛选栏默认单行展示、支持展开，并与重置和学生分页�
     pagination.evaluate((element) => element.getBoundingClientRect().width),
   ]);
   expect(widths[1]).toBeLessThanOrEqual(widths[0]);
-  await pagination.locator(".ant-pagination-next button").click();
-  await expect(
-    selector.getByRole("option", { name: /沈雨桐/ }),
-  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("员工客诉列表保留官方查询表格和 URL 下钻", async ({ page }) => {
@@ -239,6 +247,7 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
     "风险等级",
     "风险总结",
     "命中关键词",
+    "命中相似句",
     "操作",
   ]) {
     await expect(
@@ -272,6 +281,9 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   await expect(
     firstRiskRow.getByLabel("命中关键词 找不到人、联系不上、未反馈"),
   ).toBeVisible();
+  await expect(
+    firstRiskRow.getByText(/这几天一直联系不上老师。/),
+  ).toBeVisible();
   await firstRiskRow.getByRole("button", { name: "详情" }).click();
   const eventDrawer = page.getByRole("dialog", {
     name: "2026-08-09 · 跟进及时性风险详情",
@@ -284,6 +296,10 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   await expect(evidence).toBeVisible();
   await expect(basic.getByText("命中关键词", { exact: true })).toBeVisible();
   await expect(basic.getByText("找不到人", { exact: true })).toBeVisible();
+  await expect(basic.getByText("命中相似句", { exact: true })).toBeVisible();
+  await expect(
+    basic.getByText("这几天一直联系不上老师。", { exact: true }),
+  ).toBeVisible();
   await expect(aiSummary.getByText("风险总结", { exact: true })).toBeVisible();
   await expect(aiSummary.getByText("处理建议", { exact: true })).toBeVisible();
   await expect(evidence.getByText("企微单聊", { exact: true })).toBeVisible();

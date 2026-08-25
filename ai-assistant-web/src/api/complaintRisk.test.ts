@@ -12,6 +12,7 @@ describe("complaintRiskApi event status workflow", () => {
       "resolved",
     );
     expect(response.student.pendingRiskCount).toBe(3);
+    expect(response.student.status).toBe("pending");
     const resolvedEvent = response.detail.eventGroups
       .flatMap((group) => group.events)
       .find((event) => event.id === "lin-event-follow-0809");
@@ -89,5 +90,42 @@ describe("complaintRiskApi event status workflow", () => {
 
     const detail = await complaintRiskApi.getStudentDetail("risk-student-001");
     expect(detail.student.pendingRiskCount).toBe(4);
+  });
+
+  it("最后一条待处理风险完成后更新学生整体状态", async () => {
+    for (const eventId of [
+      "lin-event-follow-0809",
+      "lin-event-refund-0809",
+      "lin-event-complaint-0809",
+      "lin-event-follow-0808",
+    ]) {
+      await complaintRiskApi.updateEventStatus(
+        "risk-student-001",
+        eventId,
+        "resolved",
+      );
+    }
+
+    const resolvedList = await complaintRiskApi.listStudents();
+    expect(
+      resolvedList.items.find((student) => student.id === "risk-student-001"),
+    ).toMatchObject({ pendingRiskCount: 0, status: "resolved" });
+
+    for (const eventId of [
+      "chen-event-complaint",
+      "chen-event-refund",
+      "chen-event-follow",
+    ]) {
+      await complaintRiskApi.updateEventStatus(
+        "risk-student-002",
+        eventId,
+        "excluded",
+      );
+    }
+
+    const excludedList = await complaintRiskApi.listStudents();
+    expect(
+      excludedList.items.find((student) => student.id === "risk-student-002"),
+    ).toMatchObject({ pendingRiskCount: 0, status: "excluded" });
   });
 });

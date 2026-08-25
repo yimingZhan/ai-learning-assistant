@@ -9,7 +9,9 @@ import {
 
 describe("filterRiskStudents", () => {
   it("按学生名称或编号模糊搜索", () => {
-    expect(filterRiskStudents(riskStudents, { student: "林家" })).toHaveLength(1);
+    expect(filterRiskStudents(riskStudents, { student: "林家" })).toHaveLength(
+      1,
+    );
     expect(
       filterRiskStudents(riskStudents, { student: "S2026002" }),
     ).toHaveLength(1);
@@ -61,7 +63,9 @@ describe("filterRiskStudents", () => {
 
 describe("risk student ordering", () => {
   it("支持风险、最近时间和待处理数量三种倒序排序", () => {
-    expect(sortRiskStudents(riskStudents, "risk").map((item) => item.id)).toEqual([
+    expect(
+      sortRiskStudents(riskStudents, "risk").map((item) => item.id),
+    ).toEqual([
       "risk-student-001",
       "risk-student-002",
       "risk-student-003",
@@ -72,13 +76,30 @@ describe("risk student ordering", () => {
     expect(sortRiskStudents(riskStudents, "latest")[0].id).toBe(
       "risk-student-001",
     );
-    expect(sortRiskStudents(riskStudents, "pendingCount").map((item) => item.pendingRiskCount)).toEqual([
-      4, 3, 3, 2, 1, 0,
-    ]);
+    expect(
+      sortRiskStudents(riskStudents, "pendingCount").map(
+        (item) => item.pendingRiskCount,
+      ),
+    ).toEqual([4, 3, 3, 2, 1, 0]);
   });
 });
 
 describe("riskStudentDetails", () => {
+  it("学生整体状态按待处理、已处理和已排除归类", () => {
+    expect(
+      riskStudents.filter((student) => student.status === "pending"),
+    ).toHaveLength(5);
+    expect(
+      riskStudents.filter((student) => student.status === "resolved"),
+    ).toHaveLength(0);
+    expect(
+      riskStudents.filter((student) => student.status === "excluded"),
+    ).toHaveLength(1);
+    expect(
+      riskStudents.find((student) => student.id === "risk-student-004")?.status,
+    ).toBe("excluded");
+  });
+
   it("待处理数量只统计 pending 事件", () => {
     for (const student of riskStudents) {
       const events = riskStudentDetails[student.id].eventGroups.flatMap(
@@ -88,7 +109,10 @@ describe("riskStudentDetails", () => {
         events.filter((event) => event.status === "pending").length,
       );
     }
-    expect(riskStudents.find((student) => student.id === "risk-student-004")?.pendingRiskCount).toBe(0);
+    expect(
+      riskStudents.find((student) => student.id === "risk-student-004")
+        ?.pendingRiskCount,
+    ).toBe(0);
   });
 
   it("已处理的 Mock 风险包含处理人和处理时间", () => {
@@ -101,9 +125,7 @@ describe("riskStudentDetails", () => {
     expect(resolvedEvents.length).toBeGreaterThan(0);
     for (const event of resolvedEvents) {
       expect(event.resolvedBy).toBeTruthy();
-      expect(event.resolvedAt).toMatch(
-        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
-      );
+      expect(event.resolvedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     }
   });
 
@@ -117,9 +139,7 @@ describe("riskStudentDetails", () => {
     expect(excludedEvents.length).toBeGreaterThan(0);
     for (const event of excludedEvents) {
       expect(event.excludedBy).toBeTruthy();
-      expect(event.excludedAt).toMatch(
-        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
-      );
+      expect(event.excludedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
     }
   });
 
@@ -168,9 +188,9 @@ describe("riskStudentDetails", () => {
   });
 
   it("关键字样例覆盖用户指定表达", () => {
-    const linEvents = riskStudentDetails["risk-student-001"].eventGroups.flatMap(
-      (group) => group.events,
-    );
+    const linEvents = riskStudentDetails[
+      "risk-student-001"
+    ].eventGroups.flatMap((group) => group.events);
     const keywords = Object.fromEntries(
       linEvents.slice(0, 3).map((event) => [event.riskType, event.keywords]),
     );
@@ -187,7 +207,27 @@ describe("riskStudentDetails", () => {
       ]),
     );
     expect(keywords["客诉"]).toEqual(
-      expect.arrayContaining(["不满意", "不喜欢", "风格不合适", "换老师", "全拒"]),
+      expect.arrayContaining([
+        "不满意",
+        "不喜欢",
+        "风格不合适",
+        "换老师",
+        "全拒",
+      ]),
     );
+  });
+
+  it("每个风险事件都包含命中相似句", () => {
+    const events = Object.values(riskStudentDetails).flatMap((detail) =>
+      detail.eventGroups.flatMap((group) => group.events),
+    );
+
+    expect(events.every((event) => event.similarSentences.length > 0)).toBe(
+      true,
+    );
+    expect(
+      events.find((event) => event.id === "lin-event-follow-0809")
+        ?.similarSentences,
+    ).toContain("这几天一直联系不上老师。");
   });
 });

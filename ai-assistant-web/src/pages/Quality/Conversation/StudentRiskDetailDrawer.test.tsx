@@ -488,6 +488,7 @@ describe("StudentRiskDetail", () => {
       "风险等级",
       "风险总结",
       "命中关键词",
+      "命中相似句",
       "操作",
     ]) {
       expect(
@@ -516,6 +517,20 @@ describe("StudentRiskDetail", () => {
     expect(
       within(events).getByLabelText("命中关键词 找不到人、联系不上、未反馈"),
     ).toBeTruthy();
+    const keywordHeader = within(events).getByRole("columnheader", {
+      name: "命中关键词",
+    });
+    const similarSentenceHeader = within(events).getByRole("columnheader", {
+      name: "命中相似句",
+    });
+    expect(
+      keywordHeader.compareDocumentPosition(similarSentenceHeader) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const followUpRow = within(events)
+      .getAllByRole("row")
+      .find((row) => row.textContent?.includes("家长连续反馈找不到负责人"));
+    expect(followUpRow?.textContent).toContain("这几天一直联系不上老师。");
     expect(within(events).queryByText("处理建议", { exact: true })).toBeNull();
     expect(within(events).queryByText("风险详情", { exact: true })).toBeNull();
     expect(screen.queryByRole("combobox", { name: "风险状态筛选" })).toBeNull();
@@ -682,6 +697,7 @@ describe("StudentRiskDetail", () => {
       "风险等级",
       "处理状态",
       "命中关键词",
+      "命中相似句",
     ]) {
       expect(within(basic).getByText(field, { exact: true })).toBeTruthy();
     }
@@ -689,6 +705,21 @@ describe("StudentRiskDetail", () => {
     expect(within(basic).getByText("高风险", { exact: true })).toBeTruthy();
     expect(within(basic).getByText("待处理", { exact: true })).toBeTruthy();
     expect(within(basic).getByText("找不到人", { exact: true })).toBeTruthy();
+    expect(
+      within(basic).getByText("这几天一直联系不上老师。", {
+        exact: true,
+      }),
+    ).toBeTruthy();
+    const keywordLabel = within(basic).getByText("命中关键词", {
+      exact: true,
+    });
+    const similarSentenceLabel = within(basic).getByText("命中相似句", {
+      exact: true,
+    });
+    expect(
+      keywordLabel.compareDocumentPosition(similarSentenceLabel) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(within(basic).queryByText("处理人", { exact: true })).toBeNull();
     expect(within(basic).queryByText("处理时间", { exact: true })).toBeNull();
     expect(within(basic).queryByText("证据数", { exact: true })).toBeNull();

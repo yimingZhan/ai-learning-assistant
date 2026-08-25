@@ -6,6 +6,7 @@ export type RiskStudent = {
   id: string;
   studentName: string;
   studentNumber: string;
+  status: RiskEventStatus;
   riskLevel: RiskLevel;
   coreRisk: string;
   pendingRiskCount: number;
@@ -97,6 +98,7 @@ export type RiskEvent = {
   handlingSuggestion: string;
   evidence: RiskEvidence[];
   keywords: string[];
+  similarSentences: string[];
 };
 
 export type RiskEventGroup = {
@@ -144,7 +146,7 @@ export type RiskOperationLog = {
   remark: string;
 };
 
-export type RiskProcessingStatus = "待跟进" | "跟进中" | "已处理";
+export type RiskProcessingStatus = "待跟进" | "跟进中" | "已处理" | "已排除";
 
 export const riskEventStatusMeta: Record<
   RiskEventStatus,
@@ -154,6 +156,17 @@ export const riskEventStatusMeta: Record<
   resolved: { label: "已处理", color: "success" },
   excluded: { label: "已排除", color: "default" },
 };
+
+export function getRiskStudentStatus(events: RiskEvent[]): RiskEventStatus {
+  if (events.some((event) => event.status === "pending")) return "pending";
+  if (
+    events.length > 0 &&
+    events.every((event) => event.status === "excluded")
+  ) {
+    return "excluded";
+  }
+  return "resolved";
+}
 
 export type RiskStudentDetail = {
   student: RiskStudent;
@@ -255,6 +268,7 @@ export const riskStudents: RiskStudent[] = [
     id: "risk-student-001",
     studentName: "林家宁",
     studentNumber: "S2026001",
+    status: "pending",
     riskLevel: "high",
     coreRisk: "家长持续反馈联系不及时，并同时出现退费和换老师诉求",
     pendingRiskCount: 4,
@@ -265,6 +279,7 @@ export const riskStudents: RiskStudent[] = [
     id: "risk-student-002",
     studentName: "陈子轩",
     studentNumber: "S2026002",
+    status: "pending",
     riskLevel: "high",
     coreRisk: "家长对当前老师和服务方案不满，并咨询退费",
     pendingRiskCount: 3,
@@ -275,6 +290,7 @@ export const riskStudents: RiskStudent[] = [
     id: "risk-student-003",
     studentName: "周沐阳",
     studentNumber: "S2026003",
+    status: "pending",
     riskLevel: "medium",
     coreRisk: "排课反馈长期未闭环，家长多次催促",
     pendingRiskCount: 1,
@@ -285,6 +301,7 @@ export const riskStudents: RiskStudent[] = [
     id: "risk-student-004",
     studentName: "沈雨桐",
     studentNumber: "S2026004",
+    status: "excluded",
     riskLevel: "low",
     coreRisk: "一次反馈时效问题已由人工确认并排除",
     pendingRiskCount: 0,
@@ -295,6 +312,7 @@ export const riskStudents: RiskStudent[] = [
     id: "risk-student-005",
     studentName: "高亦辰",
     studentNumber: "S2026005",
+    status: "pending",
     riskLevel: "medium",
     coreRisk: "服务响应和退费咨询并存，当前仍有事项待闭环",
     pendingRiskCount: 3,
@@ -305,6 +323,7 @@ export const riskStudents: RiskStudent[] = [
     id: "risk-student-006",
     studentName: "吴知夏",
     studentNumber: "S2026006",
+    status: "pending",
     riskLevel: "medium",
     coreRisk: "家长对反馈速度和老师风格均有明确意见",
     pendingRiskCount: 2,
@@ -395,8 +414,32 @@ function createWechatEvidence(input: WechatEvidenceInput): WechatEvidence {
     : { ...base, sourceType: "wechat_direct" };
 }
 
-function createEvent(event: RiskEvent) {
-  return event;
+const similarSentencesByRiskType: Record<RiskType, string[]> = {
+  跟进及时性: [
+    "这几天一直联系不上老师。",
+    "说好了给我反馈，到现在还没有消息。",
+  ],
+  退费: [
+    "剩下还有多少课时？退费的话能退多少钱？",
+    "我已经申请退费了，大概什么时候能到账？",
+  ],
+  客诉: [
+    "我对现在这个老师真的不满意。",
+    "这个老师的教学风格不适合孩子，能不能换一个？",
+  ],
+};
+
+type RiskEventInput = Omit<RiskEvent, "similarSentences"> & {
+  similarSentences?: string[];
+};
+
+function createEvent(event: RiskEventInput): RiskEvent {
+  return {
+    ...event,
+    similarSentences:
+      event.similarSentences ??
+      structuredClone(similarSentencesByRiskType[event.riskType]),
+  };
 }
 
 const linFollowDirect = createWechatEvidence({
@@ -488,7 +531,11 @@ function createDetail(
   const terminalOperationLogs: RiskOperationLog[] = eventGroups.flatMap(
     (group) =>
       group.events.flatMap((event) => {
-        if (event.status === "resolved" && event.resolvedBy && event.resolvedAt) {
+        if (
+          event.status === "resolved" &&
+          event.resolvedBy &&
+          event.resolvedAt
+        ) {
           return [
             {
               id: `${student.id}-operation-resolved-${event.id}`,
@@ -502,7 +549,11 @@ function createDetail(
             } satisfies RiskOperationLog,
           ];
         }
-        if (event.status === "excluded" && event.excludedBy && event.excludedAt) {
+        if (
+          event.status === "excluded" &&
+          event.excludedBy &&
+          event.excludedAt
+        ) {
           return [
             {
               id: `${student.id}-operation-excluded-${event.id}`,
@@ -527,9 +578,18 @@ function createDetail(
     handlingSuggestion,
     latestRiskDate: eventGroups[0].date,
     eventGroups,
-    currentStatus: student.pendingRiskCount ? "跟进中" : "已处理",
+    currentStatus:
+      student.status === "pending"
+        ? "跟进中"
+        : student.status === "excluded"
+          ? "已排除"
+          : "已处理",
     riskScore:
-      student.riskLevel === "high" ? 88 : student.riskLevel === "medium" ? 64 : 32,
+      student.riskLevel === "high"
+        ? 88
+        : student.riskLevel === "medium"
+          ? 64
+          : 32,
     workflowSteps: [
       {
         id: `${student.id}-workflow-1`,
@@ -642,7 +702,8 @@ const linGroups: RiskEventGroup[] = [
         riskLevel: "high",
         status: "pending",
         riskSummary: "家长连续反馈找不到负责人、联系不上且未按约定收到反馈。",
-        handlingSuggestion: "立即确认唯一负责人和反馈时点，并在群内逐项闭环未回复事项。",
+        handlingSuggestion:
+          "立即确认唯一负责人和反馈时点，并在群内逐项闭环未回复事项。",
         keywords: ["找不到人", "联系不上", "未反馈"],
         evidence: [linFollowDirect, linFollowGroup],
       }),
@@ -652,8 +713,15 @@ const linGroups: RiskEventGroup[] = [
         riskLevel: "high",
         status: "pending",
         riskSummary: "家长已咨询退费金额、剩余课时和退款到账时间。",
-        handlingSuggestion: "当天核对可退金额、剩余课时、审核步骤和预计到账时间并一次性回复。",
-        keywords: ["退费", "退了", "还剩多少钱", "还有多少课时", "什么时候到账"],
+        handlingSuggestion:
+          "当天核对可退金额、剩余课时、审核步骤和预计到账时间并一次性回复。",
+        keywords: [
+          "退费",
+          "退了",
+          "还剩多少钱",
+          "还有多少课时",
+          "什么时候到账",
+        ],
         evidence: [linRefundDirect, linRefundGroup],
       }),
       createEvent({
@@ -661,8 +729,10 @@ const linGroups: RiskEventGroup[] = [
         riskType: "客诉",
         riskLevel: "medium",
         status: "pending",
-        riskSummary: "家长明确表示对老师不满意、孩子不喜欢当前风格并提出换老师。",
-        handlingSuggestion: "复盘老师匹配和申请结果，提供可选师资与明确调整时间。",
+        riskSummary:
+          "家长明确表示对老师不满意、孩子不喜欢当前风格并提出换老师。",
+        handlingSuggestion:
+          "复盘老师匹配和申请结果，提供可选师资与明确调整时间。",
         keywords: ["不满意", "不喜欢", "风格不合适", "换老师", "全拒"],
         evidence: [linComplaintDirect, linComplaintGroup],
       }),
@@ -761,8 +831,10 @@ const detailDefinitions: Array<{
   {
     student: riskStudents[0],
     groups: linGroups,
-    summary: "家长当前同时存在跟进时效、退费与老师服务客诉，需优先完成明确回复和责任人升级。",
-    suggestion: "由周欣牵头，在当日完成未反馈事项、退费口径和师资调整三项闭环。",
+    summary:
+      "家长当前同时存在跟进时效、退费与老师服务客诉，需优先完成明确回复和责任人升级。",
+    suggestion:
+      "由周欣牵头，在当日完成未反馈事项、退费口径和师资调整三项闭环。",
   },
   {
     student: riskStudents[1],
@@ -779,7 +851,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "提供两名备选老师及试听安排。",
             keywords: ["风格不合适", "换老师"],
             evidence: [
-              simpleEvidence("chen-complaint", "wechat_direct", "2026-08-08 16:20", "李辰", "这个老师风格不合适，我们想换老师。", "我今天提供两名备选老师供您确认。"),
+              simpleEvidence(
+                "chen-complaint",
+                "wechat_direct",
+                "2026-08-08 16:20",
+                "李辰",
+                "这个老师风格不合适，我们想换老师。",
+                "我今天提供两名备选老师供您确认。",
+              ),
             ],
           }),
           createEvent({
@@ -791,7 +870,15 @@ const detailDefinitions: Array<{
             handlingSuggestion: "同步师资调整方案和退费流程边界。",
             keywords: ["退费"],
             evidence: [
-              simpleEvidence("chen-refund", "wechat_group", "2026-08-08 16:46", "李辰", "老师换不了的话我们就退费。", "我先确认师资方案，今晚同步结果。", "陈子轩课程服务群"),
+              simpleEvidence(
+                "chen-refund",
+                "wechat_group",
+                "2026-08-08 16:46",
+                "李辰",
+                "老师换不了的话我们就退费。",
+                "我先确认师资方案，今晚同步结果。",
+                "陈子轩课程服务群",
+              ),
             ],
           }),
         ],
@@ -808,7 +895,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "立即回复进度并设定固定同步节点。",
             keywords: ["未反馈"],
             evidence: [
-              simpleEvidence("chen-follow", "wechat_direct", "2026-08-06 15:12", "李辰", "课程方案问了两天还没有反馈。", "我今天五点前把完整方案发给您。"),
+              simpleEvidence(
+                "chen-follow",
+                "wechat_direct",
+                "2026-08-06 15:12",
+                "李辰",
+                "课程方案问了两天还没有反馈。",
+                "我今天五点前把完整方案发给您。",
+              ),
             ],
           }),
         ],
@@ -832,7 +926,15 @@ const detailDefinitions: Array<{
             handlingSuggestion: "提供两个无冲突时段并完成群内确认。",
             keywords: ["未反馈", "联系不上"],
             evidence: [
-              simpleEvidence("zhou-follow-pending", "wechat_group", "2026-08-06 11:05", "王珊", "排课问题说了几次还没反馈最终时间。", "我午后给您两个可选时间。", "周沐阳排课沟通群"),
+              simpleEvidence(
+                "zhou-follow-pending",
+                "wechat_group",
+                "2026-08-06 11:05",
+                "王珊",
+                "排课问题说了几次还没反馈最终时间。",
+                "我午后给您两个可选时间。",
+                "周沐阳排课沟通群",
+              ),
             ],
           }),
         ],
@@ -851,7 +953,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "保持固定时段，后续主动同步。",
             keywords: ["未反馈"],
             evidence: [
-              simpleEvidence("zhou-follow-resolved", "wechat_direct", "2026-08-05 15:40", "王珊", "调课结果还没收到。", "新的固定时段已确认并发送给您。"),
+              simpleEvidence(
+                "zhou-follow-resolved",
+                "wechat_direct",
+                "2026-08-05 15:40",
+                "王珊",
+                "调课结果还没收到。",
+                "新的固定时段已确认并发送给您。",
+              ),
             ],
           }),
         ],
@@ -877,7 +986,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "无需处理，保留识别记录供后续校准。",
             keywords: ["未反馈"],
             evidence: [
-              simpleEvidence("shen-follow-excluded", "wechat_direct", "2026-08-04 14:18", "赵敏", "今天的课后反馈稍后能发我吗？", "可以，按约定会在晚上八点前发送。"),
+              simpleEvidence(
+                "shen-follow-excluded",
+                "wechat_direct",
+                "2026-08-04 14:18",
+                "赵敏",
+                "今天的课后反馈稍后能发我吗？",
+                "可以，按约定会在晚上八点前发送。",
+              ),
             ],
           }),
         ],
@@ -901,7 +1017,15 @@ const detailDefinitions: Array<{
             handlingSuggestion: "建立未结事项清单并逐项标注负责人和截止时间。",
             keywords: ["联系不上", "未反馈"],
             evidence: [
-              simpleEvidence("gao-follow", "wechat_group", "2026-08-02 18:36", "孙超", "之前提的问题一直联系不上负责人，也没有反馈。", "我已汇总所有事项，明早逐项回复。", "高亦辰服务沟通群"),
+              simpleEvidence(
+                "gao-follow",
+                "wechat_group",
+                "2026-08-02 18:36",
+                "孙超",
+                "之前提的问题一直联系不上负责人，也没有反馈。",
+                "我已汇总所有事项，明早逐项回复。",
+                "高亦辰服务沟通群",
+              ),
             ],
           }),
           createEvent({
@@ -913,7 +1037,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "先回应未结诉求，同时准确说明退费节点。",
             keywords: ["退费", "什么时候到账"],
             evidence: [
-              simpleEvidence("gao-refund", "wechat_direct", "2026-08-02 19:00", "孙超", "如果退费，大概什么时候到账？", "我先解决当前问题，也会把退费流程说明清楚。"),
+              simpleEvidence(
+                "gao-refund",
+                "wechat_direct",
+                "2026-08-02 19:00",
+                "孙超",
+                "如果退费，大概什么时候到账？",
+                "我先解决当前问题，也会把退费流程说明清楚。",
+              ),
             ],
           }),
         ],
@@ -930,7 +1061,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "锁定固定周末时段并避免未经确认的调整。",
             keywords: ["不满意"],
             evidence: [
-              simpleEvidence("gao-complaint", "wechat_direct", "2026-08-01 10:40", "孙超", "我对周末时间一直变很不满意。", "我重新锁定固定时段，未经您确认不再调整。"),
+              simpleEvidence(
+                "gao-complaint",
+                "wechat_direct",
+                "2026-08-01 10:40",
+                "孙超",
+                "我对周末时间一直变很不满意。",
+                "我重新锁定固定时段，未经您确认不再调整。",
+              ),
             ],
           }),
         ],
@@ -949,7 +1087,15 @@ const detailDefinitions: Array<{
             handlingSuggestion: "继续按节点主动同步。",
             keywords: ["未反馈"],
             evidence: [
-              simpleEvidence("gao-follow-resolved", "wechat_group", "2026-07-31 16:10", "孙超", "上次的问题还没有反馈。", "处理结果已经整理好，现在同步到群里。", "高亦辰服务沟通群"),
+              simpleEvidence(
+                "gao-follow-resolved",
+                "wechat_group",
+                "2026-07-31 16:10",
+                "孙超",
+                "上次的问题还没有反馈。",
+                "处理结果已经整理好，现在同步到群里。",
+                "高亦辰服务沟通群",
+              ),
             ],
           }),
         ],
@@ -973,7 +1119,14 @@ const detailDefinitions: Array<{
             handlingSuggestion: "当天回复并确认后续固定联系人。",
             keywords: ["找不到人", "未反馈"],
             evidence: [
-              simpleEvidence("wu-follow", "wechat_direct", "2026-08-01 17:26", "孟涵", "我留言两次都未反馈，也找不到人。", "抱歉，我会作为固定联系人持续跟进。"),
+              simpleEvidence(
+                "wu-follow",
+                "wechat_direct",
+                "2026-08-01 17:26",
+                "孟涵",
+                "我留言两次都未反馈，也找不到人。",
+                "抱歉，我会作为固定联系人持续跟进。",
+              ),
             ],
           }),
           createEvent({
@@ -985,7 +1138,15 @@ const detailDefinitions: Array<{
             handlingSuggestion: "安排一次师资匹配复盘并提供试听选择。",
             keywords: ["不喜欢", "风格不合适"],
             evidence: [
-              simpleEvidence("wu-complaint", "wechat_group", "2026-08-01 17:40", "孟涵", "孩子不喜欢现在老师，感觉风格不合适。", "我会准备备选老师并安排试听。", "吴知夏课程服务群"),
+              simpleEvidence(
+                "wu-complaint",
+                "wechat_group",
+                "2026-08-01 17:40",
+                "孟涵",
+                "孩子不喜欢现在老师，感觉风格不合适。",
+                "我会准备备选老师并安排试听。",
+                "吴知夏课程服务群",
+              ),
             ],
           }),
         ],
@@ -1018,7 +1179,10 @@ export function getRiskEventRelatedPeople(studentId: string): RelatedPerson[] {
       for (const employee of evidence.employees) {
         const person = people.get(employee.name);
         if (!person) {
-          people.set(employee.name, { name: employee.name, roles: [employee.role] });
+          people.set(employee.name, {
+            name: employee.name,
+            roles: [employee.role],
+          });
         } else if (!person.roles.includes(employee.role)) {
           person.roles.push(employee.role);
         }

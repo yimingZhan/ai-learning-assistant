@@ -35,6 +35,7 @@ import {
   runRenewalDiagnosis,
 } from "./renewal";
 import {
+  getRiskStudentStatus,
   riskStudentDetails,
   riskStudents,
   type RiskEventStatus,
@@ -44,9 +45,8 @@ import {
 
 let store: MockStore = createInitialStore();
 let complaintRiskStudents: RiskStudent[] = structuredClone(riskStudents);
-let complaintRiskDetails: Record<string, RiskStudentDetail> = structuredClone(
-  riskStudentDetails,
-);
+let complaintRiskDetails: Record<string, RiskStudentDetail> =
+  structuredClone(riskStudentDetails);
 
 export function resetMockStore() {
   store = createInitialStore();
@@ -93,15 +93,11 @@ function addPlatformAssistantAudit(
   });
 }
 
-function hasPermission(
-  permission: (typeof currentUser.permissions)[number],
-) {
+function hasPermission(permission: (typeof currentUser.permissions)[number]) {
   return currentUser.permissions.includes(permission);
 }
 
-function platformAssistantConfigurationError(
-  config: PlatformAssistantConfig,
-) {
+function platformAssistantConfigurationError(config: PlatformAssistantConfig) {
   if (!config.basic.name.trim() || !config.basic.welcomeMessage.trim()) {
     return "请补全助手名称和欢迎语";
   }
@@ -191,15 +187,12 @@ export const handlers = [
     }),
   ),
 
-  http.get(
-    "*/api/v1/complaint-risks/students/:studentId",
-    ({ params }) => {
-      const detail = complaintRiskDetails[String(params.studentId)];
-      return detail
-        ? HttpResponse.json(structuredClone(detail))
-        : HttpResponse.json({ message: "学生风险记录不存在" }, { status: 404 });
-    },
-  ),
+  http.get("*/api/v1/complaint-risks/students/:studentId", ({ params }) => {
+    const detail = complaintRiskDetails[String(params.studentId)];
+    return detail
+      ? HttpResponse.json(structuredClone(detail))
+      : HttpResponse.json({ message: "学生风险记录不存在" }, { status: 404 });
+  }),
 
   http.patch(
     "*/api/v1/complaint-risks/students/:studentId/events/:eventId/status",
@@ -207,7 +200,9 @@ export const handlers = [
       const studentId = String(params.studentId);
       const eventId = String(params.eventId);
       const detail = complaintRiskDetails[studentId];
-      const student = complaintRiskStudents.find((item) => item.id === studentId);
+      const student = complaintRiskStudents.find(
+        (item) => item.id === studentId,
+      );
 
       if (!detail || !student) {
         return HttpResponse.json(
@@ -265,9 +260,18 @@ export const handlers = [
       const pendingRiskCount = detail.eventGroups
         .flatMap((group) => group.events)
         .filter((item) => item.status === "pending").length;
+      const studentStatus = getRiskStudentStatus(
+        detail.eventGroups.flatMap((group) => group.events),
+      );
       student.pendingRiskCount = pendingRiskCount;
+      student.status = studentStatus;
       detail.student = structuredClone(student);
-      detail.currentStatus = pendingRiskCount ? "跟进中" : "已处理";
+      detail.currentStatus =
+        studentStatus === "pending"
+          ? "跟进中"
+          : studentStatus === "excluded"
+            ? "已排除"
+            : "已处理";
 
       return HttpResponse.json({
         student: structuredClone(student),
@@ -292,7 +296,10 @@ export const handlers = [
 
   http.get("*/api/v1/assistant/runtime", () => {
     if (!hasPermission("assistant.use")) {
-      return HttpResponse.json({ message: "暂无权限使用 AI 助手" }, { status: 403 });
+      return HttpResponse.json(
+        { message: "暂无权限使用 AI 助手" },
+        { status: 403 },
+      );
     }
     return HttpResponse.json(
       createPlatformAssistantRuntime(
@@ -304,7 +311,10 @@ export const handlers = [
 
   http.get("*/api/v1/ai-config/platform-assistant", () => {
     if (!hasPermission("platformAssistantConfig.view")) {
-      return HttpResponse.json({ message: "暂无权限查看平台助手配置" }, { status: 403 });
+      return HttpResponse.json(
+        { message: "暂无权限查看平台助手配置" },
+        { status: 403 },
+      );
     }
     return HttpResponse.json(structuredClone(store.platformAssistantConfig));
   }),
@@ -313,7 +323,10 @@ export const handlers = [
     "*/api/v1/ai-config/platform-assistant/draft",
     async ({ request }) => {
       if (!hasPermission("platformAssistantConfig.edit")) {
-        return HttpResponse.json({ message: "暂无权限编辑平台助手配置" }, { status: 403 });
+        return HttpResponse.json(
+          { message: "暂无权限编辑平台助手配置" },
+          { status: 403 },
+        );
       }
       const config = (await request.json()) as PlatformAssistantConfig;
       const configError = platformAssistantConfigurationError(config);
@@ -327,10 +340,10 @@ export const handlers = [
         ...structuredClone(config),
         draftStatus: "saved",
         lastSuccessfulTrialAt: trialIsCurrent
-          ? config.lastSuccessfulTrialAt ?? currentTimestamp()
+          ? (config.lastSuccessfulTrialAt ?? currentTimestamp())
           : undefined,
         lastSuccessfulTrialBy: trialIsCurrent
-          ? config.lastSuccessfulTrialBy ?? currentUser.name
+          ? (config.lastSuccessfulTrialBy ?? currentUser.name)
           : undefined,
         updatedAt: currentTimestamp(),
         updatedBy: currentUser.name,
@@ -346,7 +359,10 @@ export const handlers = [
     "*/api/v1/ai-config/platform-assistant/trial",
     async ({ request }) => {
       if (!hasPermission("platformAssistantConfig.edit")) {
-        return HttpResponse.json({ message: "暂无权限试运行平台助手配置" }, { status: 403 });
+        return HttpResponse.json(
+          { message: "暂无权限试运行平台助手配置" },
+          { status: 403 },
+        );
       }
       const body = (await request.json()) as PlatformAssistantTrialRequest;
       const configError = platformAssistantConfigurationError(body.config);
@@ -403,11 +419,15 @@ export const handlers = [
         store.platformAssistantConfig.lastSuccessfulTrialAt = trialAt;
         store.platformAssistantConfig.lastSuccessfulTrialBy = currentUser.name;
       }
-      addPlatformAssistantAudit("trialSucceeded", `试运行通过：${capability.name}`, {
-        configVersion: body.config.draftVersion,
-        capabilityId: capability.id,
-        role: body.role,
-      });
+      addPlatformAssistantAudit(
+        "trialSucceeded",
+        `试运行通过：${capability.name}`,
+        {
+          configVersion: body.config.draftVersion,
+          capabilityId: capability.id,
+          role: body.role,
+        },
+      );
       return HttpResponse.json({
         success: true,
         trialAt,
@@ -428,7 +448,10 @@ export const handlers = [
     "*/api/v1/ai-config/platform-assistant/publish",
     async ({ request }) => {
       if (!hasPermission("platformAssistantConfig.publish")) {
-        return HttpResponse.json({ message: "暂无权限发布平台助手配置" }, { status: 403 });
+        return HttpResponse.json(
+          { message: "暂无权限发布平台助手配置" },
+          { status: 403 },
+        );
       }
       const body = (await request.json()) as {
         config: PlatformAssistantConfig;
@@ -439,7 +462,10 @@ export const handlers = [
         return HttpResponse.json({ message: configError }, { status: 400 });
       }
       if (!body.changeNote.trim()) {
-        return HttpResponse.json({ message: "请填写变更说明" }, { status: 400 });
+        return HttpResponse.json(
+          { message: "请填写变更说明" },
+          { status: 400 },
+        );
       }
       if (
         store.platformAssistantLastTrialSignature !==
@@ -495,11 +521,13 @@ export const handlers = [
     "*/api/v1/ai-config/platform-assistant/versions/:version/rollback",
     ({ params }) => {
       if (!hasPermission("platformAssistantConfig.rollback")) {
-        return HttpResponse.json({ message: "暂无权限回滚平台助手配置" }, { status: 403 });
+        return HttpResponse.json(
+          { message: "暂无权限回滚平台助手配置" },
+          { status: 403 },
+        );
       }
       const targetVersion = String(params.version);
-      const snapshot =
-        store.platformAssistantVersionSnapshots[targetVersion];
+      const snapshot = store.platformAssistantVersionSnapshots[targetVersion];
       if (!snapshot) {
         return HttpResponse.json({ message: "版本不存在" }, { status: 404 });
       }
@@ -534,9 +562,13 @@ export const handlers = [
         structuredClone(rolledBackConfig);
       store.platformAssistantLastTrialSignature =
         platformAssistantConfigSignature(rolledBackConfig);
-      addPlatformAssistantAudit("rolledBack", `回滚 ${targetVersion} 并发布为 ${version}。`, {
-        configVersion: version,
-      });
+      addPlatformAssistantAudit(
+        "rolledBack",
+        `回滚 ${targetVersion} 并发布为 ${version}。`,
+        {
+          configVersion: version,
+        },
+      );
       return HttpResponse.json(structuredClone(rolledBackConfig));
     },
   ),
@@ -549,19 +581,16 @@ export const handlers = [
     HttpResponse.json(structuredClone(store.complaintRiskConfig)),
   ),
 
-  http.patch(
-    "*/api/v1/ai-config/complaint-risk",
-    async ({ request }) => {
-      const config = (await request.json()) as ComplaintRiskConfig;
-      store.complaintRiskConfig = {
-        ...structuredClone(config),
-        draftStatus: "published",
-        updatedAt: currentTimestamp(),
-        updatedBy: currentUser.name,
-      };
-      return HttpResponse.json(structuredClone(store.complaintRiskConfig));
-    },
-  ),
+  http.patch("*/api/v1/ai-config/complaint-risk", async ({ request }) => {
+    const config = (await request.json()) as ComplaintRiskConfig;
+    store.complaintRiskConfig = {
+      ...structuredClone(config),
+      draftStatus: "published",
+      updatedAt: currentTimestamp(),
+      updatedBy: currentUser.name,
+    };
+    return HttpResponse.json(structuredClone(store.complaintRiskConfig));
+  }),
 
   http.post(
     "*/api/v1/ai-config/complaint-risk/publish",
@@ -656,23 +685,28 @@ export const handlers = [
             student.name.includes(keyword) ||
             student.customerNumber.includes(keyword),
         )
-        .map(({ conditionSignals: _conditionSignals, purchasedProductIds: _purchasedProductIds, prerequisiteResults: _prerequisiteResults, nextExamDate: _nextExamDate, ...student }) => student),
+        .map(
+          ({
+            conditionSignals: _conditionSignals,
+            purchasedProductIds: _purchasedProductIds,
+            prerequisiteResults: _prerequisiteResults,
+            nextExamDate: _nextExamDate,
+            ...student
+          }) => student,
+        ),
     );
   }),
 
-  http.get(
-    "*/api/v1/renewal/students/:studentId/diagnosis",
-    ({ params }) => {
-      const diagnosis = getRenewalStudentDiagnosis(
-        String(params.studentId),
-        store.renewalPublishedConfig,
-      );
-      if (!diagnosis) {
-        return HttpResponse.json({ message: "学生不存在" }, { status: 404 });
-      }
-      return HttpResponse.json(structuredClone(diagnosis));
-    },
-  ),
+  http.get("*/api/v1/renewal/students/:studentId/diagnosis", ({ params }) => {
+    const diagnosis = getRenewalStudentDiagnosis(
+      String(params.studentId),
+      store.renewalPublishedConfig,
+    );
+    if (!diagnosis) {
+      return HttpResponse.json({ message: "学生不存在" }, { status: 404 });
+    }
+    return HttpResponse.json(structuredClone(diagnosis));
+  }),
 
   http.post("*/api/v1/renewal/diagnoses/run", async ({ request }) => {
     const body = (await request.json()) as RenewalRunRequest;
@@ -819,26 +853,24 @@ export const handlers = [
     return HttpResponse.json(summary);
   }),
 
-  http.patch(
-    "*/api/v1/work-reminders/:reminderId/read",
-    ({ params }) => {
-      const reminder = store.reminders.find(
-        (item) => item.id === String(params.reminderId),
-      );
-      if (!reminder) {
-        return HttpResponse.json({ message: "提醒不存在" }, { status: 404 });
-      }
-      reminder.read = true;
-      const summary: WorkReminderSummary = {
-        unreadCount: store.reminders.filter((item) => !item.read).length,
-        items: store.reminders,
-      };
-      return HttpResponse.json(summary);
-    },
-  ),
+  http.patch("*/api/v1/work-reminders/:reminderId/read", ({ params }) => {
+    const reminder = store.reminders.find(
+      (item) => item.id === String(params.reminderId),
+    );
+    if (!reminder) {
+      return HttpResponse.json({ message: "提醒不存在" }, { status: 404 });
+    }
+    reminder.read = true;
+    const summary: WorkReminderSummary = {
+      unreadCount: store.reminders.filter((item) => !item.read).length,
+      items: store.reminders,
+    };
+    return HttpResponse.json(summary);
+  }),
 
   http.get("*/api/v1/students", ({ request }) => {
-    const keyword = new URL(request.url).searchParams.get("keyword")?.trim() ?? "";
+    const keyword =
+      new URL(request.url).searchParams.get("keyword")?.trim() ?? "";
     return HttpResponse.json(
       students.filter((student) => student.name.includes(keyword)),
     );
@@ -985,8 +1017,7 @@ export const handlers = [
         createdAt: new Date().toISOString(),
         card: payload.card,
         sources: payload.sources,
-        configVersion:
-          store.platformAssistantPublishedConfig.publishedVersion,
+        configVersion: store.platformAssistantPublishedConfig.publishedVersion,
         status: "done",
       };
       messages.push(assistantMessage);
@@ -996,7 +1027,8 @@ export const handlers = [
       );
       if (conversation) {
         if (conversation.title === "新对话") {
-          conversation.title = body.text.length > 22 ? `${body.text.slice(0, 22)}…` : body.text;
+          conversation.title =
+            body.text.length > 22 ? `${body.text.slice(0, 22)}…` : body.text;
         }
         conversation.updatedAt = assistantMessage.createdAt;
       }

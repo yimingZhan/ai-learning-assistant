@@ -24,15 +24,17 @@ import {
   employeeDepartmentTree,
   filterRiskStudents,
   relatedPersonOptions,
+  riskEventStatusMeta,
   riskLevelMeta,
   riskTypeOptions,
   sortRiskStudents,
+  type RiskEventStatus,
   type RiskStudent,
   type RiskStudentFilters,
 } from "./riskData";
 
 export type AdvancedFilters = RiskStudentFilters;
-export type StudentProgressFilter = "all" | "pending" | "closed";
+export type StudentProgressFilter = RiskEventStatus;
 export const STUDENT_PAGE_SIZE = 5;
 
 export function formatDate(date: Date) {
@@ -94,12 +96,14 @@ export function useRiskStudentSelection(
   );
   const progressCounts = useMemo(
     () => ({
-      all: filteredStudents.length,
       pending: filteredStudents.filter(
-        (student) => student.pendingRiskCount > 0,
+        (student) => student.status === "pending",
       ).length,
-      closed: filteredStudents.filter(
-        (student) => student.pendingRiskCount === 0,
+      resolved: filteredStudents.filter(
+        (student) => student.status === "resolved",
+      ).length,
+      excluded: filteredStudents.filter(
+        (student) => student.status === "excluded",
       ).length,
     }),
     [filteredStudents],
@@ -107,11 +111,7 @@ export function useRiskStudentSelection(
   const visibleStudents = useMemo(
     () =>
       sortRiskStudents(
-        filteredStudents.filter((student) => {
-          if (progress === "pending") return student.pendingRiskCount > 0;
-          if (progress === "closed") return student.pendingRiskCount === 0;
-          return true;
-        }),
+        filteredStudents.filter((student) => student.status === progress),
         "risk",
       ),
     [filteredStudents, progress],
@@ -164,9 +164,7 @@ export function useRiskStudentSelection(
   };
 }
 
-export type RiskStudentSelection = ReturnType<
-  typeof useRiskStudentSelection
->;
+export type RiskStudentSelection = ReturnType<typeof useRiskStudentSelection>;
 
 type StudentQueryBarProps = {
   selection: RiskStudentSelection;
@@ -296,14 +294,17 @@ export function StudentSelector({
           selection.applyProgress(key as StudentProgressFilter)
         }
         items={[
-          { key: "all", label: `全部（${selection.progressCounts.all}）` },
           {
             key: "pending",
             label: `待处理（${selection.progressCounts.pending}）`,
           },
           {
-            key: "closed",
-            label: `已处理（${selection.progressCounts.closed}）`,
+            key: "resolved",
+            label: `已处理（${selection.progressCounts.resolved}）`,
+          },
+          {
+            key: "excluded",
+            label: `已排除（${selection.progressCounts.excluded}）`,
           },
         ]}
       />
@@ -314,9 +315,11 @@ export function StudentSelector({
         renderItem={(student) => {
           const selected = student.id === selectedStudentId;
           const riskMeta = riskLevelMeta[student.riskLevel];
-          const progressLabel = student.pendingRiskCount
-            ? `有待处理风险 · ${student.pendingRiskCount}`
-            : "已全部闭环";
+          const statusMeta = riskEventStatusMeta[student.status];
+          const progressLabel =
+            student.status === "pending"
+              ? `有待处理风险 · ${student.pendingRiskCount}`
+              : statusMeta.label;
 
           return (
             <List.Item>
@@ -349,17 +352,12 @@ export function StudentSelector({
                   </Space>
                   <Space size={[4, 4]} wrap>
                     <Tag
-                      color={
-                        student.pendingRiskCount ? "processing" : "success"
-                      }
+                      color={statusMeta.color}
                       style={{ marginInlineEnd: 0 }}
                     >
                       {progressLabel}
                     </Tag>
-                    <Tag
-                      color={riskMeta.color}
-                      style={{ marginInlineEnd: 0 }}
-                    >
+                    <Tag color={riskMeta.color} style={{ marginInlineEnd: 0 }}>
                       {riskMeta.label}
                     </Tag>
                   </Space>

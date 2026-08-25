@@ -447,6 +447,20 @@ function RiskEventDetails({
                 <Text type="secondary">暂无</Text>
               ),
             },
+            {
+              key: "similarSentences",
+              label: "命中相似句",
+              span: 2,
+              children: event.similarSentences.length ? (
+                <ul className={styles.similarSentenceList}>
+                  {event.similarSentences.map((sentence) => (
+                    <li key={sentence}>{sentence}</li>
+                  ))}
+                </ul>
+              ) : (
+                <Text type="secondary">暂无</Text>
+              ),
+            },
             ...(auditMeta
               ? [
                   {
@@ -605,6 +619,24 @@ function EventsSection({
         },
       },
       {
+        title: "命中相似句",
+        key: "similarSentences",
+        width: 240,
+        render: (_, row) => {
+          const similarSentenceText = row.event.similarSentences.join("；");
+          return similarSentenceText ? (
+            <Paragraph
+              className={styles.tableSimilarSentences}
+              ellipsis={{ rows: 2, tooltip: similarSentenceText }}
+            >
+              {similarSentenceText}
+            </Paragraph>
+          ) : (
+            <Text type="secondary">暂无</Text>
+          );
+        },
+      },
+      {
         title: "处理状态",
         key: "status",
         width: 88,
@@ -657,6 +689,7 @@ function EventsSection({
       styles.tableDate,
       styles.tableKeywords,
       styles.tableOperations,
+      styles.tableSimilarSentences,
       styles.tableSummary,
       updatingEventIds,
     ],
@@ -721,7 +754,7 @@ function EventsSection({
           }),
           columnWidth: 48,
         }}
-        scroll={{ x: 1060 }}
+        scroll={{ x: 1300 }}
         locale={{ emptyText: <Empty description="当前状态下暂无风险事件" /> }}
         pagination={{
           current: currentPage,
