@@ -59,7 +59,7 @@ describe("StudentSelector", () => {
     expect(screen.queryByRole("option", { name: /沈雨桐/ })).toBeNull();
   });
 
-  it("切换已处理后仅展示无待处理风险的学生", async () => {
+  it("切换已处理后仅展示无待处理风险的学生且卡片不展示标签", async () => {
     render(<StudentSelectorHarness />);
 
     fireEvent.click(screen.getByRole("tab", { name: "已处理（1）" }));
@@ -70,10 +70,25 @@ describe("StudentSelector", () => {
     await waitFor(() =>
       expect(closedCard.getAttribute("aria-selected")).toBe("true"),
     );
+    expect(closedCard.querySelectorAll(".ant-tag")).toHaveLength(0);
     expect(
-      within(closedCard).getByText("已全部闭环", { exact: true }),
-    ).toBeTruthy();
+      within(closedCard).queryByText("已全部闭环", { exact: true }),
+    ).toBeNull();
     expect(screen.queryByRole("option", { name: /林家宁/ })).toBeNull();
+  });
+
+  it("全部列表仍展示学生卡片标签", async () => {
+    render(<StudentSelectorHarness />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "全部（6）" }));
+
+    const pendingCard = await screen.findByRole("option", {
+      name: /林家宁/,
+    });
+    expect(
+      within(pendingCard).getByText("有待处理风险 · 4", { exact: true }),
+    ).toBeTruthy();
+    expect(pendingCard.querySelectorAll(".ant-tag")).toHaveLength(2);
   });
 
   it("筛选项默认只展示一行，可展开全部六项并通过查询按钮应用", async () => {

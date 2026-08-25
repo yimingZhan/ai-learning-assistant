@@ -345,19 +345,24 @@ export function StudentSelector({
                       {student.studentNumber}
                     </Typography.Text>
                   </Space>
-                  <Space size={[4, 4]} wrap>
-                    <Tag
-                      color={
-                        student.pendingRiskCount ? "processing" : "success"
-                      }
-                      style={{ marginInlineEnd: 0 }}
-                    >
-                      {progressLabel}
-                    </Tag>
-                    <Tag color={riskMeta.color} style={{ marginInlineEnd: 0 }}>
-                      {riskMeta.label}
-                    </Tag>
-                  </Space>
+                  {selection.progress !== "closed" && (
+                    <Space size={[4, 4]} wrap>
+                      <Tag
+                        color={
+                          student.pendingRiskCount ? "processing" : "success"
+                        }
+                        style={{ marginInlineEnd: 0 }}
+                      >
+                        {progressLabel}
+                      </Tag>
+                      <Tag
+                        color={riskMeta.color}
+                        style={{ marginInlineEnd: 0 }}
+                      >
+                        {riskMeta.label}
+                      </Tag>
+                    </Space>
+                  )}
                 </Flex>
               </Card>
             </List.Item>
