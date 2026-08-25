@@ -24,17 +24,15 @@ import {
   employeeDepartmentTree,
   filterRiskStudents,
   relatedPersonOptions,
-  riskEventStatusMeta,
   riskLevelMeta,
   riskTypeOptions,
   sortRiskStudents,
-  type RiskEventStatus,
   type RiskStudent,
   type RiskStudentFilters,
 } from "./riskData";
 
 export type AdvancedFilters = RiskStudentFilters;
-export type StudentProgressFilter = RiskEventStatus;
+export type StudentProgressFilter = "all" | "pending" | "closed";
 export const STUDENT_PAGE_SIZE = 5;
 
 export function formatDate(date: Date) {
@@ -96,14 +94,12 @@ export function useRiskStudentSelection(
   );
   const progressCounts = useMemo(
     () => ({
+      all: filteredStudents.length,
       pending: filteredStudents.filter(
-        (student) => student.status === "pending",
+        (student) => student.pendingRiskCount > 0,
       ).length,
-      resolved: filteredStudents.filter(
-        (student) => student.status === "resolved",
-      ).length,
-      excluded: filteredStudents.filter(
-        (student) => student.status === "excluded",
+      closed: filteredStudents.filter(
+        (student) => student.pendingRiskCount === 0,
       ).length,
     }),
     [filteredStudents],
@@ -111,7 +107,11 @@ export function useRiskStudentSelection(
   const visibleStudents = useMemo(
     () =>
       sortRiskStudents(
-        filteredStudents.filter((student) => student.status === progress),
+        filteredStudents.filter((student) => {
+          if (progress === "pending") return student.pendingRiskCount > 0;
+          if (progress === "closed") return student.pendingRiskCount === 0;
+          return true;
+        }),
         "risk",
       ),
     [filteredStudents, progress],
@@ -294,17 +294,14 @@ export function StudentSelector({
           selection.applyProgress(key as StudentProgressFilter)
         }
         items={[
+          { key: "all", label: `全部（${selection.progressCounts.all}）` },
           {
             key: "pending",
             label: `待处理（${selection.progressCounts.pending}）`,
           },
           {
-            key: "resolved",
-            label: `已处理（${selection.progressCounts.resolved}）`,
-          },
-          {
-            key: "excluded",
-            label: `已排除（${selection.progressCounts.excluded}）`,
+            key: "closed",
+            label: `已处理（${selection.progressCounts.closed}）`,
           },
         ]}
       />
@@ -315,11 +312,9 @@ export function StudentSelector({
         renderItem={(student) => {
           const selected = student.id === selectedStudentId;
           const riskMeta = riskLevelMeta[student.riskLevel];
-          const statusMeta = riskEventStatusMeta[student.status];
-          const progressLabel =
-            student.status === "pending"
-              ? `有待处理风险 · ${student.pendingRiskCount}`
-              : statusMeta.label;
+          const progressLabel = student.pendingRiskCount
+            ? `有待处理风险 · ${student.pendingRiskCount}`
+            : "已全部闭环";
 
           return (
             <List.Item>
@@ -352,7 +347,9 @@ export function StudentSelector({
                   </Space>
                   <Space size={[4, 4]} wrap>
                     <Tag
-                      color={statusMeta.color}
+                      color={
+                        student.pendingRiskCount ? "processing" : "success"
+                      }
                       style={{ marginInlineEnd: 0 }}
                     >
                       {progressLabel}

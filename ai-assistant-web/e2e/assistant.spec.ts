@@ -100,7 +100,7 @@ test("移动端依然对客诉预警隐藏 AI，并将帮助收入用户菜单",
   await expect(page.getByText("帮助与反馈", { exact: true })).toBeVisible();
 });
 
-test("筛选栏默认单行展示、支持展开，并与重置和学生状态联动", async ({
+test("筛选栏默认单行展示、支持展开，并与重置和学生分页联动", async ({
   page,
 }) => {
   const query = page.getByRole("region", { name: "客诉风险学生筛选" });
@@ -133,22 +133,19 @@ test("筛选栏默认单行展示、支持展开，并与重置和学生状态�
   await query.getByRole("button", { name: /重\s*置/ }).click();
   await expect(selector.getByRole("option", { name: /林家宁/ })).toBeVisible();
 
+  await expect(selector.getByRole("tab", { name: "全部（6）" })).toBeVisible();
   await expect(
     selector.getByRole("tab", { name: "待处理（5）" }),
   ).toBeVisible();
   await expect(
-    selector.getByRole("tab", { name: "已处理（0）" }),
+    selector.getByRole("tab", { name: "已处理（1）" }),
   ).toBeVisible();
-  await expect(
-    selector.getByRole("tab", { name: "已排除（1）" }),
-  ).toBeVisible();
-  await expect(selector.getByRole("tab", { name: /全部/ })).toHaveCount(0);
+  await expect(selector.getByRole("tab", { name: /已排除/ })).toHaveCount(0);
 
-  await selector.getByRole("tab", { name: "已排除（1）" }).click();
-  await expect(
-    selector.getByRole("option", { name: /沈雨桐/ }),
-  ).toHaveAttribute("aria-selected", "true");
-  await expect(selector.getByRole("option", { name: /林家宁/ })).toHaveCount(0);
+  await selector.getByRole("tab", { name: "全部（6）" }).click();
+  await expect(selector.getByRole("option").first()).toHaveAccessibleName(
+    /林家宁/,
+  );
 
   const pagination = selector.getByLabel("学生列表分页");
   await expect(pagination.locator(".ant-pagination-simple")).toBeVisible();
@@ -157,6 +154,10 @@ test("筛选栏默认单行展示、支持展开，并与重置和学生状态�
     pagination.evaluate((element) => element.getBoundingClientRect().width),
   ]);
   expect(widths[1]).toBeLessThanOrEqual(widths[0]);
+  await pagination.locator(".ant-pagination-next button").click();
+  await expect(
+    selector.getByRole("option", { name: /沈雨桐/ }),
+  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("员工客诉列表保留官方查询表格和 URL 下钻", async ({ page }) => {
@@ -323,7 +324,10 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
     evidence.getByText("2026-08-09 09:12", { exact: true }),
   ).toBeVisible();
   await expect(eventDrawer.getByText("证据数", { exact: true })).toHaveCount(0);
-  await expect(eventDrawer.getByText(/群聊名称/)).toHaveCount(0);
+  await expect(evidence.getByText("群聊名称", { exact: true })).toBeVisible();
+  await expect(
+    evidence.getByText("林家宁服务沟通群", { exact: true }),
+  ).toBeVisible();
   await viewOriginalButtons.first().click();
   const originalDrawer = page.getByRole("dialog", {
     name: "2026-08-09 · 跟进及时性 · 原文",

@@ -305,7 +305,10 @@ function EvidenceList({
             <Descriptions
               className={styles.evidenceDescriptions}
               size="small"
-              column={{ xs: 1, sm: 3 }}
+              column={{
+                xs: 1,
+                sm: evidence.sourceType === "wechat_group" ? 2 : 3,
+              }}
               items={[
                 {
                   key: "source",
@@ -314,6 +317,15 @@ function EvidenceList({
                     <Tag>{evidenceSourceMeta[evidence.sourceType].label}</Tag>
                   ),
                 },
+                ...(evidence.sourceType === "wechat_group"
+                  ? [
+                      {
+                        key: "groupName",
+                        label: "群聊名称",
+                        children: evidence.groupName,
+                      },
+                    ]
+                  : []),
                 {
                   key: "employees",
                   label: "沟通员工",

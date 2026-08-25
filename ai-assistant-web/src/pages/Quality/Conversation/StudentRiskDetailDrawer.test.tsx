@@ -785,7 +785,21 @@ describe("StudentRiskDetail", () => {
     expect(
       within(evidence).queryByText("查看完整聊天", { exact: true }),
     ).toBeNull();
-    expect(within(evidence).queryByText(/群聊名称/)).toBeNull();
+    const directEvidence = within(evidence).getByRole("article", {
+      name: "企微单聊来源证据",
+    });
+    const groupEvidence = within(evidence).getByRole("article", {
+      name: "企微群聊来源证据",
+    });
+    expect(
+      within(directEvidence).queryByText("群聊名称", { exact: true }),
+    ).toBeNull();
+    expect(
+      within(groupEvidence).getByText("群聊名称", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(groupEvidence).getByText("林家宁服务沟通群", { exact: true }),
+    ).toBeTruthy();
 
     expect(
       basic.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,

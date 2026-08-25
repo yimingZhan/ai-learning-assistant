@@ -13,18 +13,14 @@ import {
   StudentSelector,
   useRiskStudentSelection,
 } from "./StudentSelector";
-import { riskStudents, type RiskStudent } from "./riskData";
+import { riskStudents } from "./riskData";
 
-function StudentSelectorHarness({
-  records = riskStudents,
-}: {
-  records?: RiskStudent[];
-}) {
+function StudentSelectorHarness() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
     null,
   );
   const selection = useRiskStudentSelection(
-    records,
+    riskStudents,
     selectedStudentId,
     setSelectedStudentId,
   );
@@ -45,11 +41,11 @@ describe("StudentSelector", () => {
   it("默认展示待处理学生并展示分组数量", async () => {
     render(<StudentSelectorHarness />);
 
-    expect(screen.queryByRole("tab", { name: /全部/ })).toBeNull();
+    expect(screen.getByRole("tab", { name: "全部（6）" })).toBeTruthy();
     const pendingTab = screen.getByRole("tab", { name: "待处理（5）" });
     expect(pendingTab.getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tab", { name: "已处理（0）" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "已排除（1）" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "已处理（1）" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: /已排除/ })).toBeNull();
 
     const linCard = await screen.findByRole("option", { name: /林家宁/ });
     await waitFor(() =>
@@ -63,28 +59,19 @@ describe("StudentSelector", () => {
     expect(screen.queryByRole("option", { name: /沈雨桐/ })).toBeNull();
   });
 
-  it("切换已处理后展示对应的空状态", async () => {
+  it("切换已处理后仅展示无待处理风险的学生", async () => {
     render(<StudentSelectorHarness />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "已处理（0）" }));
+    fireEvent.click(screen.getByRole("tab", { name: "已处理（1）" }));
 
-    expect(await screen.findByText("暂无学生", { exact: true })).toBeTruthy();
-    expect(screen.queryByRole("option")).toBeNull();
-  });
-
-  it("切换已排除后仅展示已排除学生", async () => {
-    render(<StudentSelectorHarness />);
-
-    fireEvent.click(screen.getByRole("tab", { name: "已排除（1）" }));
-
-    const excludedCard = await screen.findByRole("option", {
+    const closedCard = await screen.findByRole("option", {
       name: /沈雨桐/,
     });
     await waitFor(() =>
-      expect(excludedCard.getAttribute("aria-selected")).toBe("true"),
+      expect(closedCard.getAttribute("aria-selected")).toBe("true"),
     );
     expect(
-      within(excludedCard).getByText("已排除", { exact: true }),
+      within(closedCard).getByText("已全部闭环", { exact: true }),
     ).toBeTruthy();
     expect(screen.queryByRole("option", { name: /林家宁/ })).toBeNull();
   });
@@ -142,17 +129,9 @@ describe("StudentSelector", () => {
   });
 
   it("使用每页五人的紧凑分页并在翻页后选择页首学生", async () => {
-    const paginatedStudents = Array.from({ length: 6 }, (_, index) => ({
-      ...riskStudents[0],
-      id: `paginated-student-${index}`,
-      studentName: `分页学生${index + 1}`,
-      studentNumber: `P${String(index + 1).padStart(4, "0")}`,
-      latestRiskTime: `2026-08-${String(20 - index).padStart(2, "0")} 09:00`,
-    }));
-    const { container } = render(
-      <StudentSelectorHarness records={paginatedStudents} />,
-    );
+    const { container } = render(<StudentSelectorHarness />);
 
+    fireEvent.click(screen.getByRole("tab", { name: "全部（6）" }));
     expect(await screen.findAllByRole("option")).toHaveLength(5);
     const pagination = screen.getByLabelText("学生列表分页");
     expect(pagination.querySelector(".ant-pagination-simple")).toBeTruthy();
@@ -162,7 +141,7 @@ describe("StudentSelector", () => {
     fireEvent.click(nextButton);
 
     const secondPageCard = await screen.findByRole("option", {
-      name: /分页学生6/,
+      name: /沈雨桐/,
     });
     await waitFor(() =>
       expect(secondPageCard.getAttribute("aria-selected")).toBe("true"),
