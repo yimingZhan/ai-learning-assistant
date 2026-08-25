@@ -21,6 +21,15 @@ const linFollowDetail = {
     },
   ],
 };
+const linRefundDetail = {
+  ...linDetail,
+  eventGroups: [
+    {
+      ...linDetail.eventGroups[0],
+      events: [linDetail.eventGroups[0].events[1]],
+    },
+  ],
+};
 const linExcludedDetail = structuredClone(linFollowDetail);
 Object.assign(linExcludedDetail.eventGroups[0].events[0], {
   status: "excluded",
@@ -98,12 +107,22 @@ vi.mock("antd", async () => {
     size,
     rowSelection,
     locale,
+    onChange,
     "aria-label": ariaLabel,
   }: {
     columns?: Array<{
       key?: string;
       title?: ReactNode;
       dataIndex?: string;
+      filters?: Array<{
+        text: ReactNode;
+        value: string | number | boolean;
+      }>;
+      filteredValue?: Array<string | number | boolean> | null;
+      onFilter?: (
+        value: string | number | boolean,
+        row: Record<string, unknown>,
+      ) => boolean;
       render?: (
         value: unknown,
         row: Record<string, unknown>,
@@ -133,15 +152,32 @@ vi.mock("antd", async () => {
       };
     };
     locale?: { emptyText?: ReactNode };
+    onChange?: (
+      pagination: Record<string, never>,
+      filters: Record<string, Array<string | number | boolean> | null>,
+      sorter: Record<string, never>,
+      extra: { action: "filter" },
+    ) => void;
     "aria-label"?: string;
   }) => {
+    const filteredRows = columns.reduce(
+      (rows, column) =>
+        column.filteredValue?.length && column.onFilter
+          ? rows.filter((row) =>
+              column.filteredValue?.some((value) =>
+                column.onFilter?.(value, row),
+              ),
+            )
+          : rows,
+      dataSource,
+    );
     const current = pagination?.current ?? 1;
-    const pageSize = pagination?.pageSize ?? dataSource.length;
-    const visibleRows = dataSource.slice(
+    const pageSize = pagination?.pageSize ?? filteredRows.length;
+    const visibleRows = filteredRows.slice(
       (current - 1) * pageSize,
       current * pageSize,
     );
-    const lastPage = Math.max(1, Math.ceil(dataSource.length / pageSize));
+    const lastPage = Math.max(1, Math.ceil(filteredRows.length / pageSize));
     const paginationSize =
       pagination?.size ?? (size === "small" ? "small" : "default");
 
@@ -151,9 +187,54 @@ vi.mock("antd", async () => {
           <thead>
             <tr>
               {rowSelection ? <th aria-label="选择风险" /> : null}
-              {columns.map((column, index) => (
-                <th key={column.key ?? index}>{column.title}</th>
-              ))}
+              {columns.map((column, index) => {
+                const columnKey = String(
+                  column.key ?? column.dataIndex ?? index,
+                );
+                return (
+                  <th key={columnKey}>
+                    {column.title}
+                    {column.filters ? (
+                      <select
+                        aria-label={`筛选${String(column.title)}`}
+                        value={String(column.filteredValue?.[0] ?? "")}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          onChange?.(
+                            {},
+                            Object.fromEntries(
+                              columns.map((candidate, candidateIndex) => [
+                                String(
+                                  candidate.key ??
+                                    candidate.dataIndex ??
+                                    candidateIndex,
+                                ),
+                                candidate === column
+                                  ? nextValue
+                                    ? [nextValue]
+                                    : null
+                                  : (candidate.filteredValue ?? null),
+                              ]),
+                            ),
+                            {},
+                            { action: "filter" },
+                          );
+                        }}
+                      >
+                        <option value="">全部状态</option>
+                        {column.filters.map((filter) => (
+                          <option
+                            key={String(filter.value)}
+                            value={String(filter.value)}
+                          >
+                            {filter.text}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -176,7 +257,7 @@ vi.mock("antd", async () => {
                             : current.filter((candidate) => candidate !== key);
                           rowSelection.onChange?.(
                             next,
-                            dataSource.filter((candidate) =>
+                            filteredRows.filter((candidate) =>
                               next.includes(
                                 candidate[rowKey] as string | number,
                               ),
@@ -213,7 +294,7 @@ vi.mock("antd", async () => {
           </tbody>
         </table>
         {pagination &&
-        (!pagination.hideOnSinglePage || dataSource.length > pageSize) ? (
+        (!pagination.hideOnSinglePage || filteredRows.length > pageSize) ? (
           <div
             className={`ant-pagination${
               paginationSize === "small" ? " ant-pagination-mini" : ""
@@ -367,9 +448,7 @@ function openRiskDetail(name = "跟进及时性") {
 }
 
 function openRiskMenu(name = "跟进及时性") {
-  fireEvent.click(
-    screen.getByRole("button", { name: `更多操作 ${name}` }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: `更多操作 ${name}` }));
 }
 
 describe("StudentRiskDetail", () => {
@@ -393,7 +472,9 @@ describe("StudentRiskDetail", () => {
     expect(within(summary).getByText("12年级", { exact: true })).toBeTruthy();
     expect(within(summary).queryByText("高风险", { exact: true })).toBeNull();
     expect(within(summary).queryByText("高风险 × 2")).toBeNull();
-    expect(within(summary).getByText("当前跟进顾问", { exact: true })).toBeTruthy();
+    expect(
+      within(summary).getByText("当前跟进顾问", { exact: true }),
+    ).toBeTruthy();
     expect(within(summary).getByText("共享顾问", { exact: true })).toBeTruthy();
     expect(within(summary).queryByText("跟进顾问", { exact: true })).toBeNull();
     expect(within(riskStats).getByText("高风险 × 2")).toBeTruthy();
@@ -407,16 +488,22 @@ describe("StudentRiskDetail", () => {
       "风险等级",
       "风险总结",
       "命中关键词",
-      "处理状态",
       "操作",
     ]) {
-      expect(within(events).getByRole("columnheader", { name: column })).toBeTruthy();
+      expect(
+        within(events).getByRole("columnheader", { name: column }),
+      ).toBeTruthy();
     }
+    expect(
+      within(events).getByRole("columnheader", { name: /处理状态/ }),
+    ).toBeTruthy();
     expect(within(events).getAllByRole("row")).toHaveLength(6);
     expect(
       within(events).queryByRole("columnheader", { name: "证据数" }),
     ).toBeNull();
-    expect(within(events).getAllByRole("button", { name: "详情" })).toHaveLength(5);
+    expect(
+      within(events).getAllByRole("button", { name: "详情" }),
+    ).toHaveLength(5);
     expect(events.querySelector(".ant-pagination")).toBeTruthy();
     expect(events.querySelector(".ant-pagination-mini")).toBeNull();
     expect(
@@ -430,7 +517,9 @@ describe("StudentRiskDetail", () => {
       within(events).getByLabelText("命中关键词 找不到人、联系不上、未反馈"),
     ).toBeTruthy();
     expect(within(events).queryByText("处理建议", { exact: true })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "风险状态筛选" })).toBeTruthy();
+    expect(within(events).queryByText("风险详情", { exact: true })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "风险状态筛选" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "筛选处理状态" })).toBeTruthy();
     expect(
       riskStats.compareDocumentPosition(
         within(events).getByRole("table", { name: "风险事件表格" }),
@@ -477,9 +566,7 @@ describe("StudentRiskDetail", () => {
       name: "确认将 2 条风险标记为已处理？",
     });
     expect(within(modal).getByText("已选择 2 条待处理风险。")).toBeTruthy();
-    fireEvent.click(
-      within(modal).getByRole("button", { name: "确认已处理" }),
-    );
+    fireEvent.click(within(modal).getByRole("button", { name: "确认已处理" }));
 
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(
@@ -549,21 +636,24 @@ describe("StudentRiskDetail", () => {
     expect(rows[4].textContent).toContain("2026-08-07");
   });
 
-  it("状态筛选仅过滤表格且顶部统计保持完整", async () => {
+  it("处理状态列筛选仅过滤表格且顶部统计保持完整", async () => {
     const { container } = render(<StudentRiskDetail detail={linDetail} />);
-    fireEvent.change(
-      screen.getByRole("combobox", { name: "风险状态筛选" }),
-      { target: { value: "resolved" } },
-    );
+    fireEvent.change(screen.getByRole("combobox", { name: "筛选处理状态" }), {
+      target: { value: "resolved" },
+    });
 
     const events = within(
       container.querySelector(".student-risk-detail-content") as HTMLElement,
     ).getByRole("region", { name: "风险详情" });
-    await waitFor(() => expect(within(events).getAllByRole("row")).toHaveLength(2));
+    await waitFor(() =>
+      expect(within(events).getAllByRole("row")).toHaveLength(2),
+    );
+    expect(within(events).getAllByText("已处理", { exact: true })).toHaveLength(
+      2,
+    );
     expect(
-      within(events).getAllByText("已处理", { exact: true }),
-    ).toHaveLength(2);
-    expect(within(events).queryByRole("button", { name: /更多操作/ })).toBeNull();
+      within(events).queryByRole("button", { name: /更多操作/ }),
+    ).toBeNull();
 
     const stats = within(events).getByRole("group", { name: "风险统计" });
     expect(within(stats).getByText("跟进及时性 × 2")).toBeTruthy();
@@ -619,20 +709,51 @@ describe("StudentRiskDetail", () => {
     expect(
       within(evidence).getAllByText("关键风险原文", { exact: true }),
     ).toHaveLength(2);
-    expect(within(evidence).getByText("企微单聊", { exact: true })).toBeTruthy();
-    expect(within(evidence).getByText("企微群聊", { exact: true })).toBeTruthy();
-    expect(within(evidence).getAllByText("原文渠道", { exact: true })).toHaveLength(2);
-    expect(within(evidence).getAllByText("沟通员工", { exact: true })).toHaveLength(2);
-    expect(within(evidence).getAllByText("沟通时间", { exact: true })).toHaveLength(2);
-    expect(within(evidence).getByText("周欣（学管）", { exact: true })).toBeTruthy();
+    expect(
+      within(evidence).getByText("企微单聊", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(evidence).getByText("企微群聊", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(evidence).getAllByText("原文渠道", { exact: true }),
+    ).toHaveLength(2);
+    expect(
+      within(evidence).getAllByText("沟通员工", { exact: true }),
+    ).toHaveLength(2);
+    expect(
+      within(evidence).getAllByText("沟通时间", { exact: true }),
+    ).toHaveLength(2);
+    expect(
+      within(evidence).getByText("周欣（学管）", { exact: true }),
+    ).toBeTruthy();
     expect(
       within(evidence).getByText("周欣（学管）、李辰（课程顾问）", {
         exact: true,
       }),
     ).toBeTruthy();
-    expect(within(evidence).getByText("2026-08-09 09:12", { exact: true })).toBeTruthy();
-    expect(within(evidence).getByText("2026-08-09 09:25", { exact: true })).toBeTruthy();
-    expect(within(evidence).queryByText("查看完整聊天", { exact: true })).toBeNull();
+    expect(
+      within(evidence).getByText("2026-08-09 09:12", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(evidence).getByText("2026-08-09 09:25", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(evidence).getByText("2026-08-09 09:12｜家宁妈妈：", {
+        exact: true,
+      }),
+    ).toBeTruthy();
+    expect(
+      within(evidence).getByText("2026-08-09 09:25｜家宁妈妈：", {
+        exact: true,
+      }),
+    ).toBeTruthy();
+    expect(
+      within(evidence).getAllByRole("button", { name: "查看原文" }),
+    ).toHaveLength(2);
+    expect(
+      within(evidence).queryByText("查看完整聊天", { exact: true }),
+    ).toBeNull();
     expect(within(evidence).queryByText(/群聊名称/)).toBeNull();
 
     expect(
@@ -642,46 +763,77 @@ describe("StudentRiskDetail", () => {
       summary.compareDocumentPosition(evidence) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+
+    fireEvent.click(
+      within(evidence).getAllByRole("button", { name: "查看原文" })[0],
+    );
+    const originalDrawer = screen.getByRole("dialog", {
+      name: "2026-08-09 · 跟进及时性 · 原文",
+    });
+    expect(
+      within(originalDrawer).getByText("完整聊天记录", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(originalDrawer).getByText("家宁妈妈", { exact: true }),
+    ).toBeTruthy();
+    expect(
+      within(originalDrawer).getByText(
+        "我找不到负责的老师，这两天一直联系不上。",
+        { exact: true },
+      ),
+    ).toBeTruthy();
   });
 
-  it(
-    "默认每页十条，切换筛选后回到第一页并关闭详情",
-    async () => {
-      const { container } = render(
-        <StudentRiskDetail detail={paginatedDetail} />,
-      );
-      expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(10);
-      openRiskDetail();
-      expect(screen.getByRole("dialog", { name: /风险详情/ })).toBeTruthy();
+  it("关键风险原文按完整时间和微信昵称开头，并加粗命中关键词", () => {
+    render(<StudentRiskDetail detail={linRefundDetail} />);
+    openRiskDetail("退费");
 
-      const nextPageButton = container.querySelector(
-        ".ant-pagination-next button",
-      ) as HTMLButtonElement;
-      expect(nextPageButton).toBeTruthy();
-      fireEvent.click(nextPageButton);
-      await waitFor(() =>
-        expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(1),
-      );
-      expect(
-        screen.getByText("分页风险事件 11", { exact: true }),
-      ).toBeTruthy();
+    const drawer = screen.getByRole("dialog", {
+      name: "2026-08-09 · 退费风险详情",
+    });
+    const evidence = within(drawer).getByRole("region", {
+      name: "来源证据",
+    });
+    const metadata = within(evidence).getByText(
+      "2026-08-09 10:18｜家宁妈妈：",
+      { exact: true },
+    );
+    const keyword = within(evidence).getByText("退费", { exact: true });
 
-      fireEvent.change(
-        screen.getByRole("combobox", { name: "风险状态筛选" }),
-        { target: { value: "pending" } },
-      );
-      await waitFor(() =>
-        expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(
-          10,
-        ),
-      );
-      expect(screen.queryByRole("dialog", { name: /风险详情/ })).toBeNull();
-      expect(
-        screen.getByText("分页风险事件 1", { exact: true }),
-      ).toBeTruthy();
-    },
-    15_000,
-  );
+    expect(metadata).toBeTruthy();
+    expect(keyword.tagName).toBe("STRONG");
+    expect(keyword.parentElement?.textContent).toBe(
+      "这个课想退费，现在还剩多少钱、还有多少课时？",
+    );
+  });
+
+  it("默认每页十条，切换筛选后回到第一页并关闭详情", async () => {
+    const { container } = render(
+      <StudentRiskDetail detail={paginatedDetail} />,
+    );
+    expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(10);
+    openRiskDetail();
+    expect(screen.getByRole("dialog", { name: /风险详情/ })).toBeTruthy();
+
+    const nextPageButton = container.querySelector(
+      ".ant-pagination-next button",
+    ) as HTMLButtonElement;
+    expect(nextPageButton).toBeTruthy();
+    fireEvent.click(nextPageButton);
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(1),
+    );
+    expect(screen.getByText("分页风险事件 11", { exact: true })).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "筛选处理状态" }), {
+      target: { value: "pending" },
+    });
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "详情" })).toHaveLength(10),
+    );
+    expect(screen.queryByRole("dialog", { name: /风险详情/ })).toBeNull();
+    expect(screen.getByText("分页风险事件 1", { exact: true })).toBeTruthy();
+  }, 15_000);
 
   it("排除风险弹窗取消不提交，确认后提交 excluded", async () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
@@ -697,8 +849,12 @@ describe("StudentRiskDetail", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "排除风险" }));
     const modal = screen.getByRole("dialog");
     expect(within(modal).getByText("确认排除该风险？")).toBeTruthy();
-    expect(within(modal).getByText(/不再计入该学生的待处理风险数量/)).toBeTruthy();
-    expect(within(modal).getByText("系统将以当前账号“周欣”记录本次操作。")).toBeTruthy();
+    expect(
+      within(modal).getByText(/不再计入该学生的待处理风险数量/),
+    ).toBeTruthy();
+    expect(
+      within(modal).getByText("系统将以当前账号“周欣”记录本次操作。"),
+    ).toBeTruthy();
     fireEvent.click(within(modal).getByRole("button", { name: "取消" }));
     expect(onUpdate).not.toHaveBeenCalled();
 
@@ -730,26 +886,25 @@ describe("StudentRiskDetail", () => {
       actor: "周欣",
       time: "2026-08-09 12:30",
     },
-  ])("$status 风险在基本信息中展示处理人和处理时间", ({
-    detail,
-    actor,
-    time,
-  }) => {
-    render(<StudentRiskDetail detail={detail} />);
-    expect(screen.queryByRole("button", { name: /更多操作/ })).toBeNull();
-    openRiskDetail();
-    const drawer = screen.getByRole("dialog", { name: /风险详情/ });
-    const basic = within(drawer).getByRole("region", {
-      name: "风险基本信息",
-    });
+  ])(
+    "$status 风险在基本信息中展示处理人和处理时间",
+    ({ detail, actor, time }) => {
+      render(<StudentRiskDetail detail={detail} />);
+      expect(screen.queryByRole("button", { name: /更多操作/ })).toBeNull();
+      openRiskDetail();
+      const drawer = screen.getByRole("dialog", { name: /风险详情/ });
+      const basic = within(drawer).getByRole("region", {
+        name: "风险基本信息",
+      });
 
-    expect(within(basic).getByText("处理人", { exact: true })).toBeTruthy();
-    expect(within(basic).getByText(actor, { exact: true })).toBeTruthy();
-    expect(within(basic).getByText("处理时间", { exact: true })).toBeTruthy();
-    expect(within(basic).getByText(time, { exact: true })).toBeTruthy();
-    expect(within(basic).queryByText("排除人", { exact: true })).toBeNull();
-    expect(within(basic).queryByText("排除时间", { exact: true })).toBeNull();
-  });
+      expect(within(basic).getByText("处理人", { exact: true })).toBeTruthy();
+      expect(within(basic).getByText(actor, { exact: true })).toBeTruthy();
+      expect(within(basic).getByText("处理时间", { exact: true })).toBeTruthy();
+      expect(within(basic).getByText(time, { exact: true })).toBeTruthy();
+      expect(within(basic).queryByText("排除人", { exact: true })).toBeNull();
+      expect(within(basic).queryByText("排除时间", { exact: true })).toBeNull();
+    },
+  );
 
   it("标记为已处理后提交 resolved", async () => {
     const onUpdate = vi.fn().mockResolvedValue(undefined);
@@ -790,6 +945,8 @@ describe("StudentRiskDetail", () => {
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "更多操作 跟进及时性" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "更多操作 跟进及时性" }),
+    ).toBeTruthy();
   });
 });

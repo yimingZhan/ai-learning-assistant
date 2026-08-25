@@ -58,6 +58,7 @@ export type EvidenceEmployee = {
 export type RiskKeyQuote = {
   occurredAt: string;
   speaker: string;
+  wechatNickname?: string;
   content: string;
 };
 
@@ -325,6 +326,7 @@ type WechatEvidenceCommonInput = {
   occurredAt: string;
   employee: string;
   employeeRole?: string;
+  parentWechatNickname?: string;
   parentText: string;
   reply: string;
   additionalEmployees?: EvidenceEmployee[];
@@ -359,6 +361,7 @@ function createWechatEvidence(input: WechatEvidenceInput): WechatEvidence {
       {
         occurredAt: input.occurredAt,
         speaker: "家长",
+        wechatNickname: input.parentWechatNickname ?? "家长",
         content: input.parentText,
       },
       ...(input.extraQuotes ?? []),
@@ -371,7 +374,7 @@ function createWechatEvidence(input: WechatEvidenceInput): WechatEvidence {
     fullChat: [
       {
         id: `${input.id}-message-1`,
-        sender: "家长",
+        sender: input.parentWechatNickname ?? "家长",
         role: "家长",
         occurredAt: input.occurredAt,
         content: [highlighted(input.parentText)],
@@ -401,6 +404,7 @@ const linFollowDirect = createWechatEvidence({
   sourceType: "wechat_direct",
   occurredAt: "2026-08-09 09:12",
   employee: "周欣",
+  parentWechatNickname: "家宁妈妈",
   parentText: "我找不到负责的老师，这两天一直联系不上。",
   reply: "抱歉让您久等，我马上确认负责人并在今天给您完整反馈。",
 });
@@ -411,6 +415,7 @@ const linFollowGroup = createWechatEvidence({
   groupName: "林家宁服务沟通群",
   occurredAt: "2026-08-09 09:25",
   employee: "周欣",
+  parentWechatNickname: "家宁妈妈",
   parentText: "昨天说好今天反馈，到现在还未反馈。",
   reply: "我正在汇总处理进度，十点前在群里逐项回复。",
   additionalEmployees: [{ name: "李辰", role: "课程顾问" }],
@@ -421,6 +426,7 @@ const linRefundDirect = createWechatEvidence({
   sourceType: "wechat_direct",
   occurredAt: "2026-08-09 10:18",
   employee: "周欣",
+  parentWechatNickname: "家宁妈妈",
   parentText: "这个课想退费，现在还剩多少钱、还有多少课时？",
   reply: "我先核对剩余课时和可退金额，今天内给您准确答复。",
 });
@@ -431,6 +437,7 @@ const linRefundGroup = createWechatEvidence({
   groupName: "林家宁课程服务群",
   occurredAt: "2026-08-09 10:32",
   employee: "李辰",
+  parentWechatNickname: "家宁妈妈",
   employeeRole: "课程顾问",
   parentText: "如果决定退了，什么时候到账？",
   reply: "到账时间需要结合审核节点确认，我会把完整流程同步到群里。",
@@ -441,6 +448,7 @@ const linComplaintDirect = createWechatEvidence({
   sourceType: "wechat_direct",
   occurredAt: "2026-08-09 11:06",
   employee: "周欣",
+  parentWechatNickname: "家宁妈妈",
   parentText: "我对现在这个老师不满意，孩子也不喜欢。",
   reply: "我会先了解孩子不适应的具体环节，再给您匹配调整方案。",
 });
@@ -451,6 +459,7 @@ const linComplaintGroup = createWechatEvidence({
   groupName: "林家宁升学规划群",
   occurredAt: "2026-08-09 11:20",
   employee: "李辰",
+  parentWechatNickname: "家宁妈妈",
   employeeRole: "课程顾问",
   parentText: "老师风格不合适，请尽快换老师；这次申请结果还全拒了。",
   reply: "我们会分别复盘老师匹配和申请结果，并在今天给出负责人和时间点。",
@@ -676,6 +685,7 @@ const linGroups: RiskEventGroup[] = [
             sourceType: "wechat_direct",
             occurredAt: "2026-08-08 16:08",
             employee: "周欣",
+            parentWechatNickname: "家宁妈妈",
             parentText: "昨天提的课程调整还没有反馈，今天能给结论吗？",
             reply: "可以，我确认完老师时间后在今天六点前回复您。",
           }),
@@ -703,6 +713,7 @@ const linGroups: RiskEventGroup[] = [
             groupName: "林家宁课程服务群",
             occurredAt: "2026-08-07 18:45",
             employee: "周欣",
+            parentWechatNickname: "家宁妈妈",
             parentText: "孩子不太喜欢今天的课堂节奏，希望下次慢一点。",
             reply: "已经和老师确认，下节课会调整节奏并增加理解检查。",
           }),

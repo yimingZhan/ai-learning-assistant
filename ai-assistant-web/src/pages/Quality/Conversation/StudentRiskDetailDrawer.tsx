@@ -1,5 +1,6 @@
-import { EllipsisOutlined } from "@ant-design/icons";
+import { EllipsisOutlined, UserOutlined } from "@ant-design/icons";
 import {
+  Avatar,
   Button,
   Descriptions,
   Drawer,
@@ -8,7 +9,6 @@ import {
   Flex,
   List,
   Modal,
-  Select,
   Space,
   Table,
   Tag,
@@ -24,6 +24,7 @@ import type {
   RiskEvidence,
   RiskLevel,
   RiskStudentDetail,
+  RiskTextSegment,
 } from "./riskData";
 import {
   evidenceSourceMeta,
@@ -41,6 +42,12 @@ type RiskStatusFilter = "all" | RiskEventStatus;
 type EventDetailView = {
   date: string;
   eventId: string;
+};
+
+type EvidenceOriginalView = {
+  date: string;
+  riskType: string;
+  evidence: RiskEvidence;
 };
 
 type PendingStatusAction = {
@@ -69,6 +76,48 @@ function formatEmployees(employees: EvidenceEmployee[]) {
   return employees
     .map((employee) => `${employee.name}（${employee.role}）`)
     .join("、");
+}
+
+function SegmentedText({ segments }: { segments: RiskTextSegment[] }) {
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <Text key={`${segment.text}-${index}`} strong={segment.highlighted}>
+          {segment.text}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function HighlightedKeywords({
+  content,
+  keywords,
+}: {
+  content: string;
+  keywords: string[];
+}) {
+  const normalizedKeywords = [...new Set(keywords.filter(Boolean))].sort(
+    (first, second) => second.length - first.length,
+  );
+  if (!normalizedKeywords.length) return content;
+
+  const keywordSet = new Set(normalizedKeywords);
+  const parts = content.split(
+    new RegExp(`(${normalizedKeywords.map(escapeRegExp).join("|")})`, "g"),
+  );
+
+  return parts.map((part, index) =>
+    keywordSet.has(part) ? (
+      <strong key={`${part}-${index}`}>{part}</strong>
+    ) : (
+      part
+    ),
+  );
 }
 
 function flattenRiskEvents(detail: RiskStudentDetail) {
@@ -166,11 +215,7 @@ function RiskStats({ detail }: { detail: RiskStudentDetail }) {
   }, [detail.eventGroups]);
 
   return (
-    <div
-      role="group"
-      aria-label="风险统计"
-      className={styles.riskStats}
-    >
+    <div role="group" aria-label="风险统计" className={styles.riskStats}>
       <div className={styles.riskStatRow}>
         <Text className={styles.riskStatLabel} type="secondary">
           风险等级
@@ -199,7 +244,13 @@ function RiskStats({ detail }: { detail: RiskStudentDetail }) {
   );
 }
 
-function EvidenceList({ event }: { event: RiskEvent }) {
+function EvidenceList({
+  event,
+  onViewOriginal,
+}: {
+  event: RiskEvent;
+  onViewOriginal: (evidence: RiskEvidence) => void;
+}) {
   const { styles } = useStudentRiskDetailStyles();
 
   return (
@@ -213,17 +264,38 @@ function EvidenceList({ event }: { event: RiskEvent }) {
             aria-label={`${evidenceSourceMeta[evidence.sourceType].label}来源证据`}
           >
             <div className={styles.keyQuotes}>
-              <Text className={styles.evidenceFieldLabel} type="secondary">
-                关键风险原文
-              </Text>
+              <Flex
+                className={styles.keyQuoteHeader}
+                justify="space-between"
+                align="center"
+                gap={8}
+              >
+                <Text className={styles.evidenceFieldLabel} type="secondary">
+                  关键风险原文
+                </Text>
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => onViewOriginal(evidence)}
+                >
+                  查看原文
+                </Button>
+              </Flex>
               <ul className={styles.keyQuoteList}>
                 {evidence.keyQuotes.map((quote, index) => (
                   <li
                     key={`${quote.occurredAt}-${index}`}
                     className={styles.keyQuoteItem}
                   >
+                    <Text className={styles.keyQuoteMeta} type="secondary">
+                      {quote.occurredAt}｜
+                      {quote.wechatNickname ?? quote.speaker}：
+                    </Text>
                     <span className={styles.keyQuoteContent}>
-                      {quote.speaker}：“{quote.content}”
+                      <HighlightedKeywords
+                        content={quote.content}
+                        keywords={event.keywords}
+                      />
                     </span>
                   </li>
                 ))}
@@ -314,9 +386,11 @@ function RiskActions({
 function RiskEventDetails({
   date,
   event,
+  onViewOriginal,
 }: {
   date: string;
   event: RiskEvent;
+  onViewOriginal: (evidence: RiskEvidence) => void;
 }) {
   const { styles } = useStudentRiskDetailStyles();
   const levelMeta = riskLevelMeta[event.riskLevel];
@@ -336,10 +410,7 @@ function RiskEventDetails({
 
   return (
     <div className={styles.eventDetails}>
-      <section
-        className={styles.eventDetailSection}
-        aria-label="风险基本信息"
-      >
+      <section className={styles.eventDetailSection} aria-label="风险基本信息">
         <Text className={styles.eventSectionTitle} strong>
           风险基本信息
         </Text>
@@ -353,7 +424,9 @@ function RiskEventDetails({
             {
               key: "level",
               label: "风险等级",
-              children: <Tag color={levelMeta.color}>{levelMeta.fullLabel}</Tag>,
+              children: (
+                <Tag color={levelMeta.color}>{levelMeta.fullLabel}</Tag>
+              ),
             },
             {
               key: "status",
@@ -392,10 +465,7 @@ function RiskEventDetails({
         />
       </section>
 
-      <section
-        className={styles.eventDetailSection}
-        aria-label="AI风险总结"
-      >
+      <section className={styles.eventDetailSection} aria-label="AI风险总结">
         <Text className={styles.eventSectionTitle} strong>
           AI风险总结
         </Text>
@@ -426,7 +496,7 @@ function RiskEventDetails({
         <Text className={styles.eventSectionTitle} strong>
           来源证据
         </Text>
-        <EvidenceList event={event} />
+        <EvidenceList event={event} onViewOriginal={onViewOriginal} />
       </section>
     </div>
   );
@@ -462,13 +532,6 @@ function EventsSection({
 }) {
   const { styles } = useStudentRiskDetailStyles();
   const allRows = useMemo(() => flattenRiskEvents(detail), [detail]);
-  const visibleRows = useMemo(
-    () =>
-      statusFilter === "all"
-        ? allRows
-        : allRows.filter((row) => row.event.status === statusFilter),
-    [allRows, statusFilter],
-  );
   const selectedEvents = useMemo(
     () =>
       allRows
@@ -545,6 +608,14 @@ function EventsSection({
         title: "处理状态",
         key: "status",
         width: 88,
+        filters: [
+          { text: "待处理", value: "pending" },
+          { text: "已处理", value: "resolved" },
+          { text: "已排除", value: "excluded" },
+        ],
+        filteredValue: statusFilter === "all" ? null : [statusFilter],
+        filterMultiple: false,
+        onFilter: (value, row) => row.event.status === value,
         render: (_, row) => {
           const meta = riskEventStatusMeta[row.event.status];
           return <Tag color={meta.color}>{meta.label}</Tag>;
@@ -582,6 +653,7 @@ function EventsSection({
     [
       onOpenDetail,
       onRequestStatusUpdate,
+      statusFilter,
       styles.tableDate,
       styles.tableKeywords,
       styles.tableOperations,
@@ -592,22 +664,6 @@ function EventsSection({
 
   return (
     <section aria-label="风险详情" className={styles.eventsSection}>
-      <header className={styles.eventsHeader}>
-        <Text strong>风险详情</Text>
-        <Select<RiskStatusFilter>
-          aria-label="风险状态筛选"
-          className={styles.statusFilter}
-          value={statusFilter}
-          onChange={onStatusFilterChange}
-          options={[
-            { label: "全部状态", value: "all" },
-            { label: "待处理", value: "pending" },
-            { label: "已处理", value: "resolved" },
-            { label: "已排除", value: "excluded" },
-          ]}
-        />
-      </header>
-
       <RiskStats detail={detail} />
 
       <div
@@ -641,8 +697,19 @@ function EventsSection({
         size="small"
         tableLayout="fixed"
         columns={columns}
-        dataSource={visibleRows}
+        dataSource={allRows}
         rowKey="key"
+        onChange={(_, filters, __, extra) => {
+          if (extra.action !== "filter") return;
+          const nextStatus = filters.status?.[0];
+          onStatusFilterChange(
+            nextStatus === "pending" ||
+              nextStatus === "resolved" ||
+              nextStatus === "excluded"
+              ? nextStatus
+              : "all",
+          );
+        }}
         rowSelection={{
           selectedRowKeys: selectedEventIds,
           onChange: (keys) =>
@@ -674,18 +741,18 @@ function RiskEventDetailDrawer({
   view,
   event,
   onClose,
+  onViewOriginal,
 }: {
   view: EventDetailView | null;
   event: RiskEvent | null;
   onClose: () => void;
+  onViewOriginal: (view: EvidenceOriginalView) => void;
 }) {
   const { styles } = useStudentRiskDetailStyles();
   return (
     <Drawer
       title={
-        view && event
-          ? `${view.date} · ${event.riskType}风险详情`
-          : undefined
+        view && event ? `${view.date} · ${event.riskType}风险详情` : undefined
       }
       size="min(720px, 100vw)"
       open={Boolean(view && event)}
@@ -695,7 +762,76 @@ function RiskEventDetailDrawer({
     >
       {view && event ? (
         <div className={styles.eventDrawerBody}>
-          <RiskEventDetails date={view.date} event={event} />
+          <RiskEventDetails
+            date={view.date}
+            event={event}
+            onViewOriginal={(evidence) =>
+              onViewOriginal({
+                date: view.date,
+                riskType: event.riskType,
+                evidence,
+              })
+            }
+          />
+        </div>
+      ) : null}
+    </Drawer>
+  );
+}
+
+function EvidenceOriginalDrawer({
+  view,
+  onClose,
+}: {
+  view: EvidenceOriginalView | null;
+  onClose: () => void;
+}) {
+  const { styles } = useStudentRiskDetailStyles();
+
+  return (
+    <Drawer
+      title={view ? `${view.date} · ${view.riskType} · 原文` : undefined}
+      size="min(560px, 100vw)"
+      open={Boolean(view)}
+      onClose={onClose}
+      destroyOnHidden
+      styles={{ body: { padding: 0 } }}
+    >
+      {view ? (
+        <div className={styles.originalDrawerBody}>
+          <Flex vertical gap={16}>
+            <Flex justify="space-between" align="center" gap={8} wrap>
+              <Text strong>完整聊天记录</Text>
+              <Space size={8} wrap>
+                <Tag>{evidenceSourceMeta[view.evidence.sourceType].label}</Tag>
+                {view.evidence.sourceType === "wechat_group" ? (
+                  <Text type="secondary">{view.evidence.groupName}</Text>
+                ) : null}
+              </Space>
+            </Flex>
+            <List
+              className={styles.originalChatList}
+              itemLayout="horizontal"
+              dataSource={view.evidence.fullChat}
+              renderItem={(message) => (
+                <List.Item key={message.id}>
+                  <List.Item.Meta
+                    avatar={<Avatar icon={<UserOutlined />} />}
+                    title={
+                      <div className={styles.originalChatTitle}>
+                        <Space size={8} wrap>
+                          <Text strong>{message.sender}</Text>
+                          <Tag>{message.role}</Tag>
+                        </Space>
+                        <Text type="secondary">{message.occurredAt}</Text>
+                      </div>
+                    }
+                    description={<SegmentedText segments={message.content} />}
+                  />
+                </List.Item>
+              )}
+            />
+          </Flex>
         </div>
       ) : null}
     </Drawer>
@@ -711,6 +847,8 @@ export function StudentRiskDetail({
   const { styles } = useStudentRiskDetailStyles();
   const [eventDetailView, setEventDetailView] =
     useState<EventDetailView | null>(null);
+  const [evidenceOriginalView, setEvidenceOriginalView] =
+    useState<EvidenceOriginalView | null>(null);
   const [statusFilter, setStatusFilter] = useState<RiskStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
@@ -724,7 +862,8 @@ export function StudentRiskDetail({
       (candidate) => candidate.date === eventDetailView.date,
     );
     return (
-      group?.events.find((event) => event.id === eventDetailView.eventId) ?? null
+      group?.events.find((event) => event.id === eventDetailView.eventId) ??
+      null
     );
   }, [detail, eventDetailView]);
 
@@ -738,6 +877,7 @@ export function StudentRiskDetail({
 
   useEffect(() => {
     setEventDetailView(null);
+    setEvidenceOriginalView(null);
     setStatusFilter("all");
     setCurrentPage(1);
     setSelectedEventIds([]);
@@ -755,6 +895,7 @@ export function StudentRiskDetail({
   useEffect(() => {
     if (eventDetailView && !selectedEvent) {
       setEventDetailView(null);
+      setEvidenceOriginalView(null);
     }
   }, [eventDetailView, selectedEvent]);
 
@@ -793,10 +934,14 @@ export function StudentRiskDetail({
                 setStatusFilter(status);
                 setCurrentPage(1);
                 setSelectedEventIds([]);
+                setEvidenceOriginalView(null);
                 setEventDetailView(null);
               }}
               onPageChange={setCurrentPage}
-              onOpenDetail={setEventDetailView}
+              onOpenDetail={(view) => {
+                setEvidenceOriginalView(null);
+                setEventDetailView(view);
+              }}
               selectedEventIds={selectedEventIds}
               onSelectedEventIdsChange={setSelectedEventIds}
               onRequestStatusUpdate={(events, status) =>
@@ -814,7 +959,16 @@ export function StudentRiskDetail({
       <RiskEventDetailDrawer
         view={eventDetailView}
         event={selectedEvent}
-        onClose={() => setEventDetailView(null)}
+        onClose={() => {
+          setEvidenceOriginalView(null);
+          setEventDetailView(null);
+        }}
+        onViewOriginal={setEvidenceOriginalView}
+      />
+
+      <EvidenceOriginalDrawer
+        view={evidenceOriginalView}
+        onClose={() => setEvidenceOriginalView(null)}
       />
 
       <Modal
@@ -822,13 +976,11 @@ export function StudentRiskDetail({
         open={Boolean(pendingAction)}
         okText={actionIsExcluded ? "确认排除" : "确认已处理"}
         cancelText="取消"
-        confirmLoading={
-          Boolean(
-            pendingAction?.events.some((event) =>
-              updatingEventIds.includes(event.id),
-            ),
-          )
-        }
+        confirmLoading={Boolean(
+          pendingAction?.events.some((event) =>
+            updatingEventIds.includes(event.id),
+          ),
+        )}
         okButtonProps={{ danger: actionIsExcluded }}
         onCancel={() => setPendingAction(null)}
         onOk={async () => {
@@ -837,10 +989,7 @@ export function StudentRiskDetail({
             const completedEventIds = pendingAction.events.map(
               (event) => event.id,
             );
-            await onUpdateEventStatus(
-              completedEventIds,
-              pendingAction.status,
-            );
+            await onUpdateEventStatus(completedEventIds, pendingAction.status);
             const completedEventIdSet = new Set(completedEventIds);
             setSelectedEventIds((current) =>
               current.filter((eventId) => !completedEventIdSet.has(eventId)),

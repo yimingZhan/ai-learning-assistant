@@ -96,16 +96,6 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     flex-direction: column;
     gap: ${token.margin}px;
   `,
-  eventsHeader: css`
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: ${token.margin}px;
-  `,
-  statusFilter: css`
-    width: 120px;
-  `,
   batchToolbar: css`
     display: flex;
     min-width: 0;
@@ -302,6 +292,15 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     display: block;
     font-size: ${token.fontSizeSM}px;
   `,
+  keyQuoteHeader: css`
+    min-width: 0;
+
+    .ant-btn {
+      flex: 0 0 auto;
+      height: auto;
+      padding: 0;
+    }
+  `,
   keyQuotes: css`
     min-width: 0;
     padding: ${token.paddingSM}px ${token.padding}px;
@@ -322,13 +321,19 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
     min-width: 0;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: ${token.marginXS}px;
+    gap: 0;
   `,
   keyQuoteContent: css`
     min-width: 0;
     color: ${token.colorText};
     line-height: ${token.lineHeightLG};
     overflow-wrap: anywhere;
+  `,
+  keyQuoteMeta: css`
+    flex: 0 0 auto;
+    font-size: ${token.fontSizeSM}px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   `,
   evidenceDescriptions: css`
     min-width: 0;
@@ -347,6 +352,39 @@ export const useStudentRiskDetailStyles = createStyles(({ css, token }) => ({
       min-width: 0;
       overflow-wrap: anywhere;
     }
+
+    .ant-tag {
+      margin-inline-end: 0;
+    }
+  `,
+  originalDrawerBody: css`
+    min-width: 0;
+    padding: ${token.paddingLG}px;
+
+    @media (max-width: 576px) {
+      padding: ${token.padding}px;
+    }
+  `,
+  originalChatList: css`
+    min-width: 0;
+
+    .ant-list-item {
+      align-items: flex-start;
+    }
+
+    .ant-list-item-meta-description {
+      color: ${token.colorText};
+      line-height: ${token.lineHeightLG};
+      overflow-wrap: anywhere;
+    }
+  `,
+  originalChatTitle: css`
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${token.marginXS}px;
 
     .ant-tag {
       margin-inline-end: 0;

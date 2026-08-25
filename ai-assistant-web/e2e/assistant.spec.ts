@@ -16,16 +16,22 @@ test("全局工具栏不展示问 AI 和工作提醒", async ({ page }) => {
 
   await expect(toolbar).toHaveCount(1);
   await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
-  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(
+    0,
+  );
   await expect(toolbar.getByRole("button", { name: "帮助" })).toBeVisible();
   await expect(toolbar.getByRole("button", { name: "用户菜单" })).toBeVisible();
-  await expect(page.getByRole("region", { name: /客诉 AI 助手/ })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: /客诉 AI 助手/ })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("dialog", { name: "AI 助手" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /向 AI 咨询/ })).toHaveCount(0);
 
   await page.goto("/#/quality/employee-complaints");
   await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
-  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(
+    0,
+  );
   await expect(page.getByLabel("AI 助手侧栏")).toHaveCount(0);
   await expect(page.getByRole("dialog", { name: "AI 助手" })).toHaveCount(0);
 });
@@ -35,11 +41,15 @@ test("AI 助手页面保持可用且全局工具栏只保留基础入口", async
   await expect(page).toHaveURL(/\/assistant$/);
   await expect(page.getByRole("region", { name: "AI 助手对话" })).toBeVisible();
   await expect(page.getByText("👋 你好，我是 AI 学情助手")).toBeVisible();
-  await expect(page.getByRole("button", { name: "打开历史会话" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "打开历史会话" }),
+  ).toBeVisible();
 
   const toolbar = page.locator('[aria-label="全局工具栏"]:visible');
   await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
-  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(0);
+  await expect(toolbar.getByRole("button", { name: "工作提醒" })).toHaveCount(
+    0,
+  );
   await expect(toolbar.getByRole("button", { name: "帮助" })).toBeVisible();
 
   const layout = await page.evaluate(() => {
@@ -51,7 +61,8 @@ test("AI 助手页面保持可用且全局工具栏只保留基础入口", async
     );
     return {
       documentOverflow:
-        document.documentElement.scrollHeight - document.documentElement.clientHeight,
+        document.documentElement.scrollHeight -
+        document.documentElement.clientHeight,
       assistantBottom: assistant?.getBoundingClientRect().bottom ?? Infinity,
       senderBottom: sender?.getBoundingClientRect().bottom ?? Infinity,
       viewportHeight: window.innerHeight,
@@ -70,7 +81,9 @@ test("帮助和用户入口保持可用", async ({ page }) => {
   await page.keyboard.press("Escape");
 
   await toolbar.getByRole("button", { name: "用户菜单" }).click();
-  await expect(page.getByText("上海中心 · 学管组", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("上海中心 · 学管组", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("当前角色：学管", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
 });
@@ -87,7 +100,9 @@ test("移动端依然对客诉预警隐藏 AI，并将帮助收入用户菜单",
   await expect(page.getByText("帮助与反馈", { exact: true })).toBeVisible();
 });
 
-test("筛选栏默认单行展示、支持展开，并与重置和学生分页联动", async ({ page }) => {
+test("筛选栏默认单行展示、支持展开，并与重置和学生分页联动", async ({
+  page,
+}) => {
   const query = page.getByRole("region", { name: "客诉风险学生筛选" });
   const selector = page.getByRole("region", { name: "选择学生" });
 
@@ -119,7 +134,9 @@ test("筛选栏默认单行展示、支持展开，并与重置和学生分页�
   await expect(selector.getByRole("option", { name: /林家宁/ })).toBeVisible();
 
   await selector.getByRole("tab", { name: "全部（6）" }).click();
-  await expect(selector.getByRole("option").first()).toHaveAccessibleName(/林家宁/);
+  await expect(selector.getByRole("option").first()).toHaveAccessibleName(
+    /林家宁/,
+  );
 
   const pagination = selector.getByLabel("学生列表分页");
   await expect(pagination.locator(".ant-pagination-simple")).toBeVisible();
@@ -129,10 +146,9 @@ test("筛选栏默认单行展示、支持展开，并与重置和学生分页�
   ]);
   expect(widths[1]).toBeLessThanOrEqual(widths[0]);
   await pagination.locator(".ant-pagination-next button").click();
-  await expect(selector.getByRole("option", { name: /沈雨桐/ })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  await expect(
+    selector.getByRole("option", { name: /沈雨桐/ }),
+  ).toHaveAttribute("aria-selected", "true");
 });
 
 test("员工客诉列表保留官方查询表格和 URL 下钻", async ({ page }) => {
@@ -164,7 +180,9 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   const riskTable = detail.getByRole("table", { name: "风险事件表格" });
 
   for (const riskType of ["跟进及时性", "退费", "客诉"]) {
-    await expect(detail.getByText(riskType, { exact: true }).first()).toBeVisible();
+    await expect(
+      detail.getByText(riskType, { exact: true }).first(),
+    ).toBeVisible();
   }
   const studentSummary = detail.getByRole("region", { name: "学生风险摘要" });
   const riskStats = detail.getByRole("group", { name: "风险统计" });
@@ -175,7 +193,9 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   await expect(riskStats.getByText("跟进及时性 × 2")).toBeVisible();
   const summaryLayout = await studentSummary.evaluate((element) => {
     const topFor = (label: string) =>
-      Array.from(element.querySelectorAll<HTMLElement>(".ant-descriptions-item-label"))
+      Array.from(
+        element.querySelectorAll<HTMLElement>(".ant-descriptions-item-label"),
+      )
         .find((item) => item.textContent?.trim() === label)
         ?.getBoundingClientRect().top ?? -1;
     return {
@@ -185,11 +205,15 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
     };
   });
   expect(summaryLayout.gradeTop).toBeGreaterThanOrEqual(0);
-  expect(Math.abs(summaryLayout.gradeTop - summaryLayout.ownerTop)).toBeLessThan(2);
-  expect(Math.abs(summaryLayout.ownerTop - summaryLayout.plannerTop)).toBeLessThan(2);
+  expect(
+    Math.abs(summaryLayout.gradeTop - summaryLayout.ownerTop),
+  ).toBeLessThan(2);
+  expect(
+    Math.abs(summaryLayout.ownerTop - summaryLayout.plannerTop),
+  ).toBeLessThan(2);
   const statsLayout = await riskStats.evaluate((element) => {
-    const labels = Array.from(element.children).map((child) =>
-      (child as HTMLElement).getBoundingClientRect().top,
+    const labels = Array.from(element.children).map(
+      (child) => (child as HTMLElement).getBoundingClientRect().top,
     );
     return {
       backgroundColor: getComputedStyle(element).backgroundColor,
@@ -199,20 +223,32 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   });
   expect(statsLayout.backgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(Math.abs(statsLayout.levelTop - statsLayout.typeTop)).toBeLessThan(2);
-  await expect(detail.getByRole("combobox", { name: "风险状态筛选" })).toBeVisible();
-  await expect(detail.getByText("通话内容总结", { exact: true })).toHaveCount(0);
-  await expect(detail.getByText("学情信息总结", { exact: true })).toHaveCount(0);
+  await expect(detail.getByText("风险详情", { exact: true })).toHaveCount(0);
+  await expect(
+    detail.getByRole("combobox", { name: "风险状态筛选" }),
+  ).toHaveCount(0);
+  await expect(detail.getByText("通话内容总结", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(detail.getByText("学情信息总结", { exact: true })).toHaveCount(
+    0,
+  );
   for (const column of [
     "风险日期",
     "风险类型",
     "风险等级",
     "风险总结",
     "命中关键词",
-    "处理状态",
     "操作",
   ]) {
-    await expect(riskTable.getByRole("columnheader", { name: column })).toBeVisible();
+    await expect(
+      riskTable.getByRole("columnheader", { name: column }),
+    ).toBeVisible();
   }
+  const statusColumn = riskTable.getByRole("columnheader", {
+    name: /处理状态/,
+  });
+  await expect(statusColumn.locator(".ant-table-filter-trigger")).toBeVisible();
   await expect(riskTable.getByRole("button", { name: "详情" })).toHaveCount(5);
   await expect(
     riskTable.getByRole("columnheader", { name: "证据数" }),
@@ -252,15 +288,43 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   await expect(aiSummary.getByText("处理建议", { exact: true })).toBeVisible();
   await expect(evidence.getByText("企微单聊", { exact: true })).toBeVisible();
   await expect(evidence.getByText("企微群聊", { exact: true })).toBeVisible();
-  await expect(evidence.getByText("关键风险原文", { exact: true })).toHaveCount(2);
+  await expect(evidence.getByText("关键风险原文", { exact: true })).toHaveCount(
+    2,
+  );
   await expect(evidence.getByText("沟通员工", { exact: true })).toHaveCount(2);
   await expect(evidence.getByText("沟通时间", { exact: true })).toHaveCount(2);
-  await expect(evidence.getByText("2026-08-09 09:12", { exact: true })).toBeVisible();
+  await expect(
+    evidence.getByText("2026-08-09 09:12｜家宁妈妈：", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    evidence.getByText("2026-08-09 09:25｜家宁妈妈：", { exact: true }),
+  ).toBeVisible();
+  const viewOriginalButtons = evidence.getByRole("button", {
+    name: "查看原文",
+  });
+  await expect(viewOriginalButtons).toHaveCount(2);
+  await expect(
+    evidence.getByText("2026-08-09 09:12", { exact: true }),
+  ).toBeVisible();
   await expect(eventDrawer.getByText("证据数", { exact: true })).toHaveCount(0);
   await expect(eventDrawer.getByText(/群聊名称/)).toHaveCount(0);
-  await expect(eventDrawer.getByRole("button", { name: /查看完整聊天/ })).toHaveCount(
-    0,
-  );
+  await viewOriginalButtons.first().click();
+  const originalDrawer = page.getByRole("dialog", {
+    name: "2026-08-09 · 跟进及时性 · 原文",
+  });
+  await expect(
+    originalDrawer.getByText("完整聊天记录", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    originalDrawer.getByText("家宁妈妈", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    originalDrawer.getByText("我找不到负责的老师，这两天一直联系不上。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await originalDrawer.getByRole("button", { name: "关闭" }).click();
+  await expect(originalDrawer).toBeHidden();
   const sectionOrder = await eventDrawer.evaluate((drawer) => {
     const labels = ["风险基本信息", "AI风险总结", "来源证据"];
     return labels.map(
@@ -275,13 +339,13 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   await eventDrawer.getByRole("button", { name: "关闭" }).click();
   await expect(eventDrawer).toBeHidden();
 
-  const statusSelect = detail.getByRole("combobox", { name: "风险状态筛选" });
-  await statusSelect.click();
-  await statusSelect.press("ArrowDown");
-  await statusSelect.press("Enter");
-  await expect(
-    detail.getByRole("button", { name: /^更多操作 / }),
-  ).toHaveCount(4);
+  await statusColumn.locator(".ant-table-filter-trigger").click();
+  const statusFilter = page.locator(".ant-table-filter-dropdown:visible");
+  await statusFilter.getByText("待处理", { exact: true }).click();
+  await statusFilter.getByRole("button", { name: /确\s*定/ }).click();
+  await expect(detail.getByRole("button", { name: /^更多操作 / })).toHaveCount(
+    4,
+  );
 
   await riskTable
     .getByRole("checkbox", {
@@ -298,16 +362,18 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
   const resolvedModal = page.getByRole("dialog", {
     name: "确认将 2 条风险标记为已处理？",
   });
-  await expect(resolvedModal.getByText(/不再计入该学生的待处理风险数量/)).toBeVisible();
+  await expect(
+    resolvedModal.getByText(/不再计入该学生的待处理风险数量/),
+  ).toBeVisible();
   await resolvedModal.getByRole("button", { name: "确认已处理" }).click();
   await expect(
     selector.getByRole("option", {
       name: /林家宁 S2026001 有待处理风险 · 2/,
     }),
   ).toBeVisible();
-  await expect(
-    detail.getByRole("button", { name: /^更多操作 / }),
-  ).toHaveCount(2);
+  await expect(detail.getByRole("button", { name: /^更多操作 / })).toHaveCount(
+    2,
+  );
 
   await riskTable
     .getByRole("checkbox", {
@@ -323,9 +389,9 @@ test("风险详情展示纯企微证据，并完成两种风险状态流转", as
       name: /林家宁 S2026001 有待处理风险 · 1/,
     }),
   ).toBeVisible();
-  await expect(
-    detail.getByRole("button", { name: /^更多操作 / }),
-  ).toHaveCount(1);
+  await expect(detail.getByRole("button", { name: /^更多操作 / })).toHaveCount(
+    1,
+  );
 });
 
 test("各响应式宽度只展示两个业务面板且无横向溢出", async ({ page }) => {
@@ -336,15 +402,16 @@ test("各响应式宽度只展示两个业务面板且无横向溢出", async ({
     const toolbar = page.locator('[aria-label="全局工具栏"]:visible');
     await expect(detail).toBeVisible();
     await expect(toolbar.getByRole("button", { name: "问 AI" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: /客诉 AI 助手/ })).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: /客诉 AI 助手/ }),
+    ).toHaveCount(0);
     await expect(page.getByLabel("AI 助手侧栏")).toHaveCount(0);
 
     const overflowState = await page
       .locator(".student-risk-detail-content")
       .evaluate((element) => {
-        const tableScroller = element.querySelector<HTMLElement>(
-          ".ant-table-content",
-        );
+        const tableScroller =
+          element.querySelector<HTMLElement>(".ant-table-content");
         return {
           detailOverflow: element.scrollWidth > element.clientWidth + 1,
           documentOverflow:
@@ -352,21 +419,31 @@ test("各响应式宽度只展示两个业务面板且无横向溢出", async ({
             document.documentElement.clientWidth + 1,
           tableScrolls: Boolean(
             tableScroller &&
-              tableScroller.scrollWidth > tableScroller.clientWidth + 1,
+            tableScroller.scrollWidth > tableScroller.clientWidth + 1,
           ),
         };
       });
     expect(overflowState.detailOverflow, `detail width: ${width}`).toBe(false);
-    expect(overflowState.documentOverflow, `document width: ${width}`).toBe(false);
+    expect(overflowState.documentOverflow, `document width: ${width}`).toBe(
+      false,
+    );
     expect(overflowState.tableScrolls, `table width: ${width}`).toBe(true);
 
     if (width >= 1024) {
-      await expect(page.locator(".ant-splitter-panel > .ant-card")).toHaveCount(2);
-      await expect(page.getByRole("region", { name: "选择学生" })).toBeVisible();
+      await expect(page.locator(".ant-splitter-panel > .ant-card")).toHaveCount(
+        2,
+      );
+      await expect(
+        page.getByRole("region", { name: "选择学生" }),
+      ).toBeVisible();
     } else {
-      await expect(page.getByRole("region", { name: "选择学生" })).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "选择学生" })).toHaveCount(
+        0,
+      );
       await page.getByRole("button", { name: "选择学生" }).click();
-      await expect(page.getByRole("dialog", { name: "选择学生" })).toBeVisible();
+      await expect(
+        page.getByRole("dialog", { name: "选择学生" }),
+      ).toBeVisible();
       await page
         .getByRole("dialog", { name: "选择学生" })
         .getByRole("button", { name: "关闭" })
